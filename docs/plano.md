@@ -208,9 +208,13 @@ Production/real deployment is explicitly out of Docker per the user's request
       `docs/google-calendar-setup.md`). Went further than originally
       planned — pulled in the start of Bills, Attachments and Chat too
       (see notes below).
-- [ ] **2. Notifications** — cron scan, in-app banner, email via nodemailer,
-      tied to agenda reminders. (Compromissos da categoria "consulta" já
-      têm `reminderDaysBefore`, mas o envio ainda não existe.)
+- [x] **2. Notifications** — `node-cron` roda um scan diário (e uma vez na
+      subida do processo) que verifica compromissos cujo `reminderDaysBefore`
+      já foi atingido, registra um `NotificationLog` por canal para evitar
+      reenvio, mostra banner in-app (visível em qualquer tela, some ao
+      recarregar) e envia email via nodemailer a cada perfil da família
+      (compromissos privados do admin notificam só o admin). SMTP não
+      configurado apenas loga em vez de falhar.
 - [~] **3. Bills/Contas module** — só o alicerce: `bills.repository.ts`
       (create/update/sum) usado pelo módulo de Agenda para registrar o
       valor de compromissos da categoria "conta" e somar o total gasto.

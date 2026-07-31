@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
+import { NotificationsBanner } from './notifications/NotificationsBanner';
 
 const NAV_ITEMS = [
   { to: '/inicio', label: 'Início' },
@@ -56,6 +57,7 @@ export function AppLayout() {
       </header>
 
       <main className="px-6 py-8">
+        <NotificationsBanner />
         <Outlet />
       </main>
     </div>
