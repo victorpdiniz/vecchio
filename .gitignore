@@ -1,0 +1,33 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+build/
+
+# Variáveis de ambiente (nunca commitar segredos reais)
+.env
+.env.local
+!.env.example
+
+# Banco de dados SQLite local
+backend/*.db
+backend/*.db-journal
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# Arquivos enviados pelos usuários (boletos, PDFs)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+
+# Índice do qartez (ferramenta local de indexação de código)
+.qartez/

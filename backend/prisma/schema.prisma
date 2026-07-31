@@ -1,0 +1,134 @@
+// Vecchio — schema do banco de dados (SQLite)
+// Ver plano em docs/ e o histórico de commits para o contexto de cada módulo.
+//
+// SQLite não suporta enums nativos no Prisma, então os campos "enum-like"
+// abaixo são String — os valores válidos são fixados nas constantes em
+// src/lib/enums.ts e validados via Zod na camada de controller.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id         String   @id @default(cuid())
+  name       String
+  role       String   @unique // "avo" | "avo_f" | "pai" | "admin"
+  email      String
+  colorTag   String
+  avatarIcon String
+  createdAt  DateTime @default(now())
+
+  agendaItems         AgendaItem[]  @relation("AgendaOwner")
+  medicines           Medicine[]
+  bills               Bill[]        @relation("BillPayer")
+  createdBills        Bill[]        @relation("BillCreator")
+  uploadedAttachments Attachment[]
+  chatMessages        ChatMessage[]
+}
+
+model AgendaItem {
+  id                 String    @id @default(cuid())
+  title              String
+  description        String?
+  category           String    @default("outro") // "consulta" | "conta" | "remedio" | "outro"
+  startAt            DateTime
+  endAt              DateTime?
+  ownerProfileId     String?
+  ownerProfile       Profile?  @relation("AgendaOwner", fields: [ownerProfileId], references: [id])
+  isPrivate          Boolean   @default(false)
+  reminderDaysBefore Int?      @default(3)
+  billId             String?   @unique
+  bill               Bill?     @relation(fields: [billId], references: [id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  notifications NotificationLog[]
+}
+
+model Medicine {
+  id        String    @id @default(cuid())
+  name      String
+  dosage    String
+  profileId String?
+  profile   Profile?  @relation(fields: [profileId], references: [id])
+  notes     String?
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  schedules MedicineSchedule[]
+}
+
+model MedicineSchedule {
+  id         String   @id @default(cuid())
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  timeOfDay  String // "HH:mm"
+  daysOfWeek String // csv, ex: "0,1,2,3,4,5,6"
+}
+
+model Bill {
+  id             String    @id @default(cuid())
+  description    String
+  amount         Float
+  dueDate        DateTime
+  category       String
+  isRecurring    Boolean   @default(false)
+  recurrenceRule String? // ex: "monthly"
+  status         String    @default("pendente") // "pendente" | "pago"
+  payerProfileId String?
+  payerProfile   Profile?  @relation("BillPayer", fields: [payerProfileId], references: [id])
+  paidAt         DateTime?
+  createdById    String
+  createdBy      Profile   @relation("BillCreator", fields: [createdById], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  attachments Attachment[]
+  agendaItem  AgendaItem?
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  billId       String
+  bill         Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  filename     String
+  storagePath  String
+  uploadedById String
+  uploadedBy   Profile  @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+}
+
+model Password {
+  id                String   @id @default(cuid())
+  siteName          String
+  url               String?
+  username          String
+  passwordEncrypted String
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model NotificationLog {
+  id           String     @id @default(cuid())
+  agendaItemId String
+  agendaItem   AgendaItem @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
+  channel      String // "inapp" | "email"
+  sentTo       String
+  sentAt       DateTime   @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id])
+  role      String // "user" | "model"
+  content   String
+  createdAt DateTime @default(now())
+}

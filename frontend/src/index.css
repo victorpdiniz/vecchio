@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  /* Fonte base maior que o padrão do navegador — pensado para uso por
+     pessoas idosas. O modo "simples" (fase de acessibilidade) aumenta
+     ainda mais a partir daqui. */
+  font-size: 18px;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Foco bem visível para navegação por teclado/controle remoto. */
+:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
