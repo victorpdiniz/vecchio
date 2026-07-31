@@ -16,3 +16,6 @@ export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 export const CHAT_ROLES = ['user', 'model'] as const;
 export type ChatRole = (typeof CHAT_ROLES)[number];
+
+export const RECURRENCE_RULES = ['diaria', 'semanal', 'mensal', 'anual'] as const;
+export type RecurrenceRule = (typeof RECURRENCE_RULES)[number];

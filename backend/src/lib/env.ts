@@ -14,6 +14,10 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional().default(''),
   SMTP_FROM: z.string().optional().default('Vecchio <no-reply@vecchio.local>'),
   USB_BASE_DIR: z.string().optional().default('/home'),
+  GOOGLE_CLIENT_ID: z.string().optional().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
+  GOOGLE_REDIRECT_URI: z.string().optional().default('http://localhost:3333/api/google-calendar/callback'),
+  FRONTEND_URL: z.string().optional().default('http://localhost:5173'),
 });
 
 export const env = envSchema.parse(process.env);

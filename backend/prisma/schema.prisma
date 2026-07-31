@@ -23,12 +23,13 @@ model Profile {
   avatarIcon String
   createdAt  DateTime @default(now())
 
-  agendaItems         AgendaItem[]  @relation("AgendaOwner")
-  medicines           Medicine[]
-  bills               Bill[]        @relation("BillPayer")
-  createdBills        Bill[]        @relation("BillCreator")
-  uploadedAttachments Attachment[]
-  chatMessages        ChatMessage[]
+  agendaItems              AgendaItem[]              @relation("AgendaOwner")
+  medicines                Medicine[]
+  bills                    Bill[]                    @relation("BillPayer")
+  createdBills             Bill[]                    @relation("BillCreator")
+  uploadedAttachments      Attachment[]
+  chatMessages             ChatMessage[]
+  googleCalendarConnection GoogleCalendarConnection?
 }
 
 model AgendaItem {
@@ -36,6 +37,7 @@ model AgendaItem {
   title              String
   description        String?
   category           String    @default("outro") // "consulta" | "conta" | "remedio" | "outro"
+  location           String?
   startAt            DateTime
   endAt              DateTime?
   ownerProfileId     String?
@@ -44,10 +46,18 @@ model AgendaItem {
   reminderDaysBefore Int?      @default(3)
   billId             String?   @unique
   bill               Bill?     @relation(fields: [billId], references: [id])
+  // Recorrência: itens gerados a partir de um mesmo compromisso recorrente
+  // compartilham recurrenceGroupId. recurrenceRule nulo = compromisso avulso.
+  recurrenceRule     String? // "diaria" | "semanal" | "mensal" | "anual"
+  recurrenceGroupId  String?
+  recurrenceEndDate  DateTime?
+  // Id do evento espelhado na agenda do Google (Admin), se sincronizado.
+  googleEventId      String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   notifications NotificationLog[]
+  attachments   Attachment[]
 }
 
 model Medicine {
@@ -93,15 +103,20 @@ model Bill {
   agendaItem  AgendaItem?
 }
 
+// Anexo pode pertencer a uma conta (Bill) OU a um compromisso da agenda
+// (AgendaItem) — exatamente um dos dois deve estar preenchido, validado na
+// camada de serviço já que o SQLite não impõe essa regra no schema.
 model Attachment {
-  id           String   @id @default(cuid())
-  billId       String
-  bill         Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  billId       String?
+  bill         Bill?       @relation(fields: [billId], references: [id], onDelete: Cascade)
+  agendaItemId String?
+  agendaItem   AgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
   filename     String
   storagePath  String
   uploadedById String
-  uploadedBy   Profile  @relation(fields: [uploadedById], references: [id])
-  uploadedAt   DateTime @default(now())
+  uploadedBy   Profile     @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime    @default(now())
 }
 
 model Password {
@@ -131,4 +146,19 @@ model ChatMessage {
   role      String // "user" | "model"
   content   String
   createdAt DateTime @default(now())
+}
+
+// Conexão OAuth do Admin com o Google Calendar — linha única, usada para
+// espelhar os compromissos não-privados da família numa agenda dedicada
+// ("Vecchio — Família") na conta pessoal do Admin.
+model GoogleCalendarConnection {
+  id               String    @id @default(cuid())
+  profileId        String    @unique
+  profile          Profile   @relation(fields: [profileId], references: [id])
+  accessToken      String
+  refreshToken     String
+  expiryDate       DateTime?
+  googleCalendarId String
+  connectedAt      DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
