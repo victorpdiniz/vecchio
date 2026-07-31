@@ -31,4 +31,17 @@ export const googleCalendarRepository = {
   deleteAll() {
     return prisma.googleCalendarConnection.deleteMany();
   },
+
+  // Compromissos de qualquer perfil da família (avô, avó, pai etc.) que
+  // ainda não têm um evento correspondente no Google — cria quando o
+  // compromisso foi feito antes da conta admin conectar o Google Agenda.
+  findUnsyncedAgendaItems() {
+    return prisma.agendaItem.findMany({
+      where: { isPrivate: false, googleEventId: null },
+    });
+  },
+
+  markAgendaItemSynced(id: string, googleEventId: string) {
+    return prisma.agendaItem.update({ where: { id }, data: { googleEventId } });
+  },
 };

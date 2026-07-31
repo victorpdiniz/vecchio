@@ -11,8 +11,14 @@ export const agendaRepository = {
   findManyInRange(from: Date, to: Date, profileId: string | null) {
     return prisma.agendaItem.findMany({
       where: {
-        startAt: { gte: from, lte: to },
-        OR: [{ isPrivate: false }, { isPrivate: true, ownerProfileId: profileId ?? '__none__' }],
+        // Compromissos que se sobrepõem ao intervalo, não só os que começam
+        // nele — sem isso, um compromisso de vários dias some da view ao
+        // navegar para um dia/semana que contém apenas seu meio ou fim.
+        AND: [
+          { startAt: { lte: to } },
+          { OR: [{ endAt: { gte: from } }, { endAt: null, startAt: { gte: from } }] },
+          { OR: [{ isPrivate: false }, { isPrivate: true, ownerProfileId: profileId ?? '__none__' }] },
+        ],
       },
       include: itemInclude,
       orderBy: { startAt: 'asc' },

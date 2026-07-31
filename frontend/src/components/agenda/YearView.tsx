@@ -1,5 +1,14 @@
 import { useMemo } from 'react';
-import { addDays, endOfMonth, format, isSameMonth, isToday, startOfMonth, startOfWeek } from 'date-fns';
+import {
+  addDays,
+  endOfMonth,
+  format,
+  isSameMonth,
+  isToday,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { AgendaItem } from '../../api/agenda';
 
@@ -28,7 +37,13 @@ interface YearViewProps {
 export function YearView({ year, items, onSelectMonth, onSelectDay }: YearViewProps) {
   const daysWithEvents = useMemo(() => {
     const set = new Set<string>();
-    items.forEach((item) => set.add(format(new Date(item.startAt), 'yyyy-MM-dd')));
+    items.forEach((item) => {
+      const start = startOfDay(new Date(item.startAt));
+      const end = item.endAt ? startOfDay(new Date(item.endAt)) : start;
+      for (let day = start; day <= end; day = addDays(day, 1)) {
+        set.add(format(day, 'yyyy-MM-dd'));
+      }
+    });
     return set;
   }, [items]);
 

@@ -1,7 +1,7 @@
 import { api } from './client';
 import type { Profile } from './profiles';
 
-export type AgendaCategory = 'consulta' | 'conta' | 'remedio' | 'outro';
+export type AgendaCategory = 'consulta' | 'exame' | 'conta' | 'remedio' | 'outro';
 export type RecurrenceRule = 'diaria' | 'semanal' | 'mensal' | 'anual';
 
 export interface Bill {

@@ -25,15 +25,40 @@ const messages = {
   date: 'Data',
   time: 'Hora',
   event: 'Compromisso',
+  allDay: 'Dia inteiro',
   noEventsInRange: 'Nenhum compromisso neste período.',
   showMore: (total: number) => `+${total} mais`,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
   consulta: '#2563eb',
+  exame: '#7c3aed',
   conta: '#dc2626',
   remedio: '#16a34a',
   outro: '#6b7280',
+};
+
+function formatTime(date: Date): string {
+  return format(date, 'HH:mm', { locale: ptBR });
+}
+
+function formatShortDate(date: Date): string {
+  return format(date, 'dd/MM', { locale: ptBR });
+}
+
+const calendarFormats = {
+  timeGutterFormat: (date: Date) => formatTime(date),
+  eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => `${formatTime(start)} – ${formatTime(end)}`,
+  eventTimeRangeStartFormat: ({ start }: { start: Date }) => `${formatTime(start)} – `,
+  eventTimeRangeEndFormat: ({ end }: { end: Date }) => `– ${formatTime(end)}`,
+  agendaTimeFormat: (date: Date) => formatTime(date),
+  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => `${formatTime(start)} – ${formatTime(end)}`,
+  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) => `${formatTime(start)} – ${formatTime(end)}`,
+  // A biblioteca usa tokens fixos tipo 'MMM dd' (mês antes do dia) nesses
+  // três formatos — sempre na ordem americana, mesmo com culture pt-BR.
+  dayHeaderFormat: (date: Date) => format(date, 'cccc, dd/MM', { locale: ptBR }),
+  dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) => `${formatShortDate(start)} – ${formatShortDate(end)}`,
+  agendaDateFormat: (date: Date) => format(date, 'ccc, dd/MM', { locale: ptBR }),
 };
 
 interface CalendarEvent {
@@ -77,6 +102,7 @@ export function AgendaCalendar({
         localizer={localizer}
         culture="pt-BR"
         messages={messages}
+        formats={calendarFormats}
         events={events}
         view={view}
         date={date}
@@ -86,6 +112,7 @@ export function AgendaCalendar({
         onSelectEvent={(event) => onSelectEvent(event.resource)}
         selectable
         onSelectSlot={(slotInfo) => onSelectSlot(slotInfo.start)}
+        showMultiDayTimes
         eventPropGetter={(event) => ({
           style: {
             backgroundColor: CATEGORY_COLORS[event.resource.category] ?? '#6b7280',

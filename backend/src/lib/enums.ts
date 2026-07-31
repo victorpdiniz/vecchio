@@ -5,7 +5,7 @@
 export const PROFILE_ROLES = ['avo', 'avo_f', 'pai', 'admin'] as const;
 export type ProfileRole = (typeof PROFILE_ROLES)[number];
 
-export const AGENDA_CATEGORIES = ['consulta', 'conta', 'remedio', 'outro'] as const;
+export const AGENDA_CATEGORIES = ['consulta', 'exame', 'conta', 'remedio', 'outro'] as const;
 export type AgendaCategory = (typeof AGENDA_CATEGORIES)[number];
 
 export const BILL_STATUSES = ['pendente', 'pago'] as const;

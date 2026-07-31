@@ -104,6 +104,25 @@ export const googleCalendarService = {
       expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
       googleCalendarId: calendarId,
     });
+
+    await this.syncExistingAgendaItems(calendar, calendarId);
+  },
+
+  // Compromissos da família (avô, avó, pai etc.) criados antes da conexão
+  // com o Google Agenda nunca são enviados sozinhos — sem isso, só os
+  // compromissos criados/editados depois de conectar apareceriam lá.
+  async syncExistingAgendaItems(calendar: calendar_v3.Calendar, calendarId: string) {
+    const items = await googleCalendarRepository.findUnsyncedAgendaItems();
+    for (const item of items) {
+      try {
+        const res = await calendar.events.insert({ calendarId, requestBody: toGoogleEvent(item) });
+        if (res.data.id) {
+          await googleCalendarRepository.markAgendaItemSynced(item.id, res.data.id);
+        }
+      } catch (error) {
+        console.warn('[google-calendar] falha ao sincronizar compromisso existente:', error);
+      }
+    }
   },
 
   async disconnect() {
