@@ -199,18 +199,32 @@ Production/real deployment is explicitly out of Docker per the user's request
       module, Vite+Tailwind frontend skeleton, Profile picker page, routing
       shell with placeholder pages for every future module. First commit +
       branches (`main`, `dev`, `backend/scaffold`, `frontend/scaffold`).
-- [ ] **1. Agenda module** — shared calendar CRUD, categories, admin's
-      private semester view.
+- [x] **1. Agenda module** — shared calendar CRUD (month/week/day/year
+      views, opens in month by default), categories, admin's private
+      semester view, location field, PDF attachments per compromisso,
+      recurring compromissos (diária/semanal/mensal/anual, materializadas
+      até 1 ano à frente), one-way sync com o Google Agenda pessoal do
+      Admin (agenda dedicada "Vecchio — Família", ver
+      `docs/google-calendar-setup.md`). Went further than originally
+      planned — pulled in the start of Bills, Attachments and Chat too
+      (see notes below).
 - [ ] **2. Notifications** — cron scan, in-app banner, email via nodemailer,
-      tied to agenda reminders.
-- [ ] **3. Bills/Contas module** — ledger CRUD, recurring templates,
-      monthly/yearly summaries, auto-linked agenda entries.
-- [ ] **4. PDF upload & simplified viewer** — attachment storage, "ver PDF"
-      + simplified card.
+      tied to agenda reminders. (Compromissos da categoria "consulta" já
+      têm `reminderDaysBefore`, mas o envio ainda não existe.)
+- [~] **3. Bills/Contas module** — só o alicerce: `bills.repository.ts`
+      (create/update/sum) usado pelo módulo de Agenda para registrar o
+      valor de compromissos da categoria "conta" e somar o total gasto.
+      Ainda faltam: controller/service dedicados, tela de listagem,
+      marcar como pago, categorias/relatórios.
+- [~] **4. PDF upload & simplified viewer** — implementado para
+      compromissos da agenda (`Attachment.agendaItemId`), não para Bills
+      diretamente ainda (o modelo já suporta os dois).
 - [ ] **5. Password vault** — encrypted CRUD + list/search UI.
 - [ ] **6. Medicines** — CRUD + daily schedule + "hoje" dashboard widget.
-- [ ] **7. Chat assistant** — Gemini integration, per-profile context
-      retrieval.
+- [~] **7. Chat assistant** — Gemini integrado e funcionando, mas o
+      contexto hoje é só a agenda (compromissos dos próximos ~60 dias).
+      Quando os módulos de Contas/Remédios existirem, o contexto deve
+      incluir esses dados também.
 - [ ] **8. USB folder transfer** — drive detection + copy flow.
 - [ ] **9. Accessibility pass** — "modo simples" theme, full keyboard nav;
       write the remote-desktop setup runbook (`docs/remote-access-setup.md`).

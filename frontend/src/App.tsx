@@ -3,6 +3,8 @@ import { AppLayout } from './components/AppLayout';
 import { RequireProfile } from './components/RequireProfile';
 import { ProfilePicker } from './pages/ProfilePicker';
 import { Dashboard } from './pages/Dashboard';
+import { Agenda } from './pages/Agenda';
+import { Chat } from './pages/Chat';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 
 export function App() {
@@ -18,10 +20,7 @@ export function App() {
         }
       >
         <Route path="/inicio" element={<Dashboard />} />
-        <Route
-          path="/agenda"
-          element={<PlaceholderPage title="Agenda" description="Compromissos e consultas da família." />}
-        />
+        <Route path="/agenda" element={<Agenda />} />
         <Route
           path="/contas"
           element={<PlaceholderPage title="Contas" description="Contas do mês e do ano." />}
@@ -34,10 +33,7 @@ export function App() {
           path="/senhas"
           element={<PlaceholderPage title="Senhas" description="Lista de senhas guardadas." />}
         />
-        <Route
-          path="/chat"
-          element={<PlaceholderPage title="Chat" description="Perguntas sobre agenda, contas e remédios." />}
-        />
+        <Route path="/chat" element={<Chat />} />
         <Route
           path="/pendrive"
           element={<PlaceholderPage title="Pendrive" description="Copiar pastas para um pendrive." />}

@@ -16,3 +16,23 @@ export function setApiProfileId(profileId: string | null) {
     delete api.defaults.headers.common['x-profile-id'];
   }
 }
+
+interface ApiErrorBody {
+  message?: string;
+  issues?: { campo: string; erro: string }[];
+}
+
+// Extrai uma mensagem em português pronta para mostrar ao usuário a partir
+// de um erro da API (400 com issues do Zod, ou AppError com só message).
+export function getErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as ApiErrorBody | undefined;
+    if (data?.issues?.length) {
+      return data.issues.map((issue) => issue.erro).join(' ');
+    }
+    if (data?.message) {
+      return data.message;
+    }
+  }
+  return 'Ocorreu um erro inesperado. Tente novamente.';
+}
