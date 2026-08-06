@@ -4,6 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import { env } from '../../lib/env.js';
 import { AppError } from '../../lib/errors.js';
 import { agendaService } from '../agenda/agenda.service.js';
+import { medicinesService } from '../medicines/medicines.service.js';
 import { chatRepository } from './chat.repository.js';
 
 const CONTEXT_PAST_DAYS = 3;
@@ -19,6 +20,16 @@ const BILL_CATEGORY_LABELS: Record<string, string> = {
   mercado: 'mercado',
   outro: 'outro',
 };
+
+const WEEKDAY_LABELS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+function formatDaysOfWeek(days: number[]): string {
+  if (days.length === 7) return 'todos os dias';
+  return [...days]
+    .sort((a, b) => a - b)
+    .map((day) => WEEKDAY_LABELS[day])
+    .join(', ');
+}
 
 function getModel() {
   if (!env.GEMINI_API_KEY) {
@@ -59,19 +70,43 @@ async function buildAgendaContext(profileId: string | null) {
     .join('\n');
 }
 
+async function buildMedicinesContext() {
+  const now = new Date();
+  const all = await medicinesService.list();
+  const active = all.filter((medicine) => medicine.startDate <= now && (!medicine.endDate || medicine.endDate >= now));
+
+  if (active.length === 0) {
+    return 'Não há nenhum remédio cadastrado no momento.';
+  }
+
+  return active
+    .map((medicine) => {
+      const quem = medicine.profile?.name ?? 'toda a família';
+      const horarios = medicine.schedules
+        .map((schedule) => `${schedule.timeOfDay} (${formatDaysOfWeek(schedule.daysOfWeek)})`)
+        .join('; ');
+      return `- ${medicine.name} (${medicine.dosage}) — para: ${quem} — horários: ${horarios}`;
+    })
+    .join('\n');
+}
+
 export const chatService = {
   async ask(profileId: string | null, message: string) {
     const model = getModel();
-    const context = await buildAgendaContext(profileId);
+    const agendaContext = await buildAgendaContext(profileId);
+    const medicinesContext = await buildMedicinesContext();
     const today = format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
     const prompt = `Você é o assistente do Vecchio, um sistema de agenda familiar para uma família brasileira.
 Responda sempre em português do Brasil, em frases curtas, simples e diretas — a pessoa que está perguntando pode ser idosa e não tem familiaridade com tecnologia.
 Hoje é ${today}.
-Use SOMENTE as informações da lista de compromissos abaixo para responder. Se a resposta não estiver nessa lista, diga educadamente que não encontrou essa informação na agenda — não invente datas, valores ou compromissos.
+Use SOMENTE as informações das listas abaixo para responder. Se a resposta não estiver nelas, diga educadamente que não encontrou essa informação — não invente datas, valores, remédios ou compromissos.
 
 Compromissos cadastrados (de ${CONTEXT_PAST_DAYS} dias atrás até ${CONTEXT_FUTURE_DAYS} dias à frente):
-${context}
+${agendaContext}
+
+Remédios cadastrados:
+${medicinesContext}
 
 Pergunta: ${message}`;
 

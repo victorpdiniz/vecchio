@@ -241,12 +241,18 @@ Production/real deployment is explicitly out of Docker per the user's request
       do site (case-insensitive, filtrada em memória — lista pequena,
       SQLite não tem `mode: 'insensitive'`). Tela `Passwords.tsx` com
       mostrar/ocultar e copiar usuário/senha.
-- [ ] **6. Medicines** — CRUD + daily schedule + "hoje" dashboard widget.
-- [~] **7. Chat assistant** — Gemini integrado e funcionando; o contexto é
-      a agenda dos próximos ~60 dias, que agora também traz categoria,
-      status (paga/pendente) e quem paga de cada conta (toda conta tem um
-      compromisso espelhado, então já aparece automaticamente). Falta
-      incluir o contexto de Remédios quando esse módulo existir.
+- [x] **6. Medicines** — `medicines.controller.ts`/`.service.ts` dedicados;
+      CRUD de remédio + horários (`MedicineSchedule`, um remédio pode ter
+      vários horários, cada um com seus próprios dias da semana —
+      substituídos por completo a cada edição via `replaceSchedules`, mais
+      simples que diff individual). `daysOfWeek` trafega como array de
+      números (0-6) na API; só o banco guarda como CSV (SQLite não tem
+      array nativo no Prisma). Widget "Remédios de hoje" no Dashboard
+      (`GET /api/medicines/today`) lista as doses do dia da semana atual
+      em ordem de horário, com indicação visual do que já passou.
+- [x] **7. Chat assistant** — Gemini integrado e funcionando; o contexto
+      inclui agenda (com categoria/status/quem paga de cada conta) e
+      agora também os remédios ativos com seus horários e dias da semana.
 - [ ] **8. USB folder transfer** — drive detection + copy flow.
 - [ ] **9. Accessibility pass** — "modo simples" theme, full keyboard nav;
       write the remote-desktop setup runbook (`docs/remote-access-setup.md`).
