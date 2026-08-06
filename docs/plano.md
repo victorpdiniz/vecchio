@@ -171,7 +171,8 @@ vecchio/
   docker-compose.yml
   docs/
     plano.md            (este arquivo)
-    remote-access-setup.md   (a escrever na fase 9)
+    google-calendar-setup.md
+    remote-access-setup.md
   README.md
 ```
 
@@ -272,8 +273,21 @@ Production/real deployment is explicitly out of Docker per the user's request
       app Electron), essas variáveis apontam pras pastas reais do host.
       Tela `UsbTransfer.tsx`: fluxo em duas colunas "escolher pasta →
       escolher pendrive → copiar", com barra de progresso via polling.
-- [ ] **9. Accessibility pass** — "modo simples" theme, full keyboard nav;
-      write the remote-desktop setup runbook (`docs/remote-access-setup.md`).
+- [x] **9. Accessibility pass** — botão **"Modo simples"** no header
+      (`AccessibilityContext`, persistido em `localStorage`), aplica a
+      classe `modo-simples` em `<html>`: aumenta a fonte-base de 18px
+      para 24px (todo o resto escala junto, já que as classes do
+      Tailwind usam rem) e escurece texto/bordas em tom claro demais pra
+      contraste maior. Navegação completa só com setas + Enter em
+      qualquer tela (`useArrowKeyNavigation`, hook global montado uma vez
+      em `App.tsx`): setas percorrem todo elemento focável em ordem do
+      DOM, sem atrapalhar digitação em campos de texto/select; Enter
+      ativa o elemento focado, incluindo checkboxes (que por padrão só
+      respondem a espaço) — o suficiente pra um controle
+      Bluetooth/IR barato que emula essas teclas operar o app inteiro.
+      Runbook de acesso remoto escrito em `docs/remote-access-setup.md`
+      (RustDesk, sem porta a abrir, acesso desacompanhado) — só
+      documentação, nenhum passo operacional foi executado.
 - [ ] **10. Windows packaging** — wrap with Electron, bundle SQLite + backend
       as a local service, installer build — explicitly a later milestone,
       not part of the initial implementation.

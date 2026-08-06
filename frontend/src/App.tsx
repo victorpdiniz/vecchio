@@ -9,8 +9,11 @@ import { Medicines } from './pages/Medicines';
 import { Passwords } from './pages/Passwords';
 import { Chat } from './pages/Chat';
 import { UsbTransfer } from './pages/UsbTransfer';
+import { useArrowKeyNavigation } from './hooks/useArrowKeyNavigation';
 
 export function App() {
+  useArrowKeyNavigation();
+
   return (
     <Routes>
       <Route path="/" element={<ProfilePicker />} />
