@@ -232,7 +232,15 @@ Production/real deployment is explicitly out of Docker per the user's request
 - [x] **4. PDF upload & simplified viewer** — agora também para Bills
       diretamente (`POST/DELETE /api/bills/:id/attachments`, mesmo padrão
       de anexos da Agenda), além dos compromissos da agenda já existentes.
-- [ ] **5. Password vault** — encrypted CRUD + list/search UI.
+- [x] **5. Password vault** — `passwords.controller.ts`/`.service.ts`
+      dedicados; CRUD completo (só o admin cria/edita/exclui, os outros 3
+      perfis só veem e copiam — reforçado em `passwordsService`, não só na
+      UI); cifra AES-256-GCM em `lib/crypto.ts` (chave derivada via
+      SHA-256 de `PASSWORD_ENCRYPTION_KEY`, formato armazenado
+      `iv+authTag+ciphertext` em base64 num único campo); busca por nome
+      do site (case-insensitive, filtrada em memória — lista pequena,
+      SQLite não tem `mode: 'insensitive'`). Tela `Passwords.tsx` com
+      mostrar/ocultar e copiar usuário/senha.
 - [ ] **6. Medicines** — CRUD + daily schedule + "hoje" dashboard widget.
 - [~] **7. Chat assistant** — Gemini integrado e funcionando; o contexto é
       a agenda dos próximos ~60 dias, que agora também traz categoria,

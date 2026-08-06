@@ -5,6 +5,7 @@ import { ProfilePicker } from './pages/ProfilePicker';
 import { Dashboard } from './pages/Dashboard';
 import { Agenda } from './pages/Agenda';
 import { Bills } from './pages/Bills';
+import { Passwords } from './pages/Passwords';
 import { Chat } from './pages/Chat';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 
@@ -27,10 +28,7 @@ export function App() {
           path="/remedios"
           element={<PlaceholderPage title="Remédios" description="Horários e doses dos remédios." />}
         />
-        <Route
-          path="/senhas"
-          element={<PlaceholderPage title="Senhas" description="Lista de senhas guardadas." />}
-        />
+        <Route path="/senhas" element={<Passwords />} />
         <Route path="/chat" element={<Chat />} />
         <Route
           path="/pendrive"
