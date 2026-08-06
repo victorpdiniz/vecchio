@@ -1,27 +1,29 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { format } from 'date-fns';
 import { getErrorMessage } from '../../api/client';
-import { DateTimeField } from '../DateTimeField';
 import {
-  createAgendaItem,
-  deleteAgendaItem,
-  deleteAgendaSeries,
-  deleteAttachment,
-  fetchAgendaItem,
-  updateAgendaItem,
-  uploadAttachment,
-  type AgendaCategory,
-  type AgendaItem,
-  type AgendaItemInput,
+  createBill,
+  deleteBill,
+  deleteBillAttachment,
+  fetchBill,
+  updateBill,
+  uploadBillAttachment,
+  type BillCategory,
+  type BillInput,
+  type BillRecord,
   type RecurrenceRule,
-} from '../../api/agenda';
-import type { Profile } from '../../api/profiles';
+} from '../../api/bills';
+import { fetchProfiles, type Profile } from '../../api/profiles';
+import { DateTimeField } from '../DateTimeField';
 
-const CATEGORY_LABELS: Record<AgendaCategory, string> = {
-  consulta: 'Consulta',
-  exame: 'Exame',
-  conta: 'Conta',
-  remedio: 'Remédio',
+export const CATEGORY_LABELS: Record<BillCategory, string> = {
+  luz: 'Luz',
+  agua: 'Água',
+  internet: 'Internet',
+  telefone: 'Telefone',
+  aluguel: 'Aluguel',
+  saude: 'Saúde',
+  mercado: 'Mercado',
   outro: 'Outro',
 };
 
@@ -32,36 +34,29 @@ const RECURRENCE_LABELS: Record<RecurrenceRule, string> = {
   anual: 'Anualmente',
 };
 
-function toDateTimeLocal(iso: string | null): string {
-  if (!iso) return '';
-  return format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
-}
-
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3333';
 
-interface AgendaItemModalProps {
+function toDateOnly(iso: string | null): string {
+  if (!iso) return '';
+  return format(new Date(iso), 'yyyy-MM-dd');
+}
+
+interface BillModalProps {
   mode: 'create' | 'edit';
-  item?: AgendaItem;
-  defaultStart?: Date;
-  currentProfile: Profile;
+  bill?: BillRecord;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onClose, onSaved }: AgendaItemModalProps) {
-  const [currentItem, setCurrentItem] = useState<AgendaItem | undefined>(item);
+export function BillModal({ mode, bill, onClose, onSaved }: BillModalProps) {
+  const [currentBill, setCurrentBill] = useState<BillRecord | undefined>(bill);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
 
-  const [title, setTitle] = useState(item?.title ?? '');
-  const [description, setDescription] = useState(item?.description ?? '');
-  const [category, setCategory] = useState<AgendaCategory>(item?.category ?? 'outro');
-  const [location, setLocation] = useState(item?.location ?? '');
-  const [startAt, setStartAt] = useState(toDateTimeLocal(item?.startAt ?? defaultStart?.toISOString() ?? null));
-  const [endAt, setEndAt] = useState(toDateTimeLocal(item?.endAt ?? null));
-  const [isPrivate, setIsPrivate] = useState(item?.isPrivate ?? false);
-  const [reminderDaysBefore, setReminderDaysBefore] = useState(
-    item?.reminderDaysBefore != null ? String(item.reminderDaysBefore) : '',
-  );
-  const [amount, setAmount] = useState(item?.bill ? String(item.bill.amount) : '');
+  const [description, setDescription] = useState(bill?.description ?? '');
+  const [category, setCategory] = useState<BillCategory>(bill?.category ?? 'outro');
+  const [amount, setAmount] = useState(bill ? String(bill.amount) : '');
+  const [dueDate, setDueDate] = useState(toDateOnly(bill?.dueDate ?? null));
+  const [payerProfileId, setPayerProfileId] = useState(bill?.payerProfileId ?? '');
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | ''>('');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
@@ -70,13 +65,15 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isAdmin = currentProfile.role === 'admin';
+  useEffect(() => {
+    fetchProfiles().then(setProfiles);
+  }, []);
 
-  async function refreshItem() {
-    if (!currentItem) return;
+  async function refreshBill() {
+    if (!currentBill) return;
     try {
-      const fresh = await fetchAgendaItem(currentItem.id);
-      setCurrentItem(fresh);
+      const fresh = await fetchBill(currentBill.id);
+      setCurrentBill(fresh);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -86,36 +83,32 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
     event.preventDefault();
     setError(null);
 
-    if (!startAt) {
-      setError('Informe a data e hora de início.');
+    if (!dueDate) {
+      setError('Informe a data de vencimento.');
       return;
     }
 
-    const payload: AgendaItemInput = {
-      title,
-      description: description || undefined,
+    const payload: BillInput = {
+      description,
       category,
-      location: location || undefined,
-      startAt: new Date(startAt).toISOString(),
-      endAt: endAt ? new Date(endAt).toISOString() : undefined,
-      isPrivate,
-      reminderDaysBefore: reminderDaysBefore !== '' ? Number(reminderDaysBefore) : undefined,
-      amount: category === 'conta' ? Number(amount) : undefined,
+      amount: Number(amount),
+      dueDate: new Date(`${dueDate}T00:00:00`).toISOString(),
+      payerProfileId: payerProfileId || undefined,
     };
 
     if (mode === 'create' && recurrenceRule) {
       payload.recurrence = {
         rule: recurrenceRule,
-        endDate: recurrenceEndDate ? new Date(recurrenceEndDate).toISOString() : undefined,
+        endDate: recurrenceEndDate ? new Date(`${recurrenceEndDate}T00:00:00`).toISOString() : undefined,
       };
     }
 
     setSaving(true);
     try {
       if (mode === 'create') {
-        await createAgendaItem(payload);
-      } else if (currentItem) {
-        await updateAgendaItem(currentItem.id, payload);
+        await createBill(payload);
+      } else if (currentBill) {
+        await updateBill(currentBill.id, payload);
       }
       onSaved();
     } catch (err) {
@@ -126,24 +119,11 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
   }
 
   async function handleDelete() {
-    if (!currentItem) return;
+    if (!currentBill) return;
     setDeleting(true);
     setError(null);
     try {
-      await deleteAgendaItem(currentItem.id);
-      onSaved();
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setDeleting(false);
-    }
-  }
-
-  async function handleDeleteSeries() {
-    if (!currentItem?.recurrenceGroupId) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await deleteAgendaSeries(currentItem.recurrenceGroupId);
+      await deleteBill(currentBill.id);
       onSaved();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -154,7 +134,7 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !currentItem) return;
+    if (!file || !currentBill) return;
     if (file.type !== 'application/pdf') {
       setError('Só é possível anexar arquivos PDF.');
       return;
@@ -162,8 +142,8 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
     setUploading(true);
     setError(null);
     try {
-      await uploadAttachment(currentItem.id, file);
-      await refreshItem();
+      await uploadBillAttachment(currentBill.id, file);
+      await refreshBill();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -174,8 +154,8 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
   async function handleRemoveAttachment(attachmentId: string) {
     setError(null);
     try {
-      await deleteAttachment(attachmentId);
-      await refreshItem();
+      await deleteBillAttachment(attachmentId);
+      await refreshBill();
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -185,9 +165,7 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-800">
-            {mode === 'create' ? 'Novo compromisso' : 'Editar compromisso'}
-          </h2>
+          <h2 className="text-2xl font-bold text-slate-800">{mode === 'create' ? 'Nova conta' : 'Editar conta'}</h2>
           <button type="button" onClick={onClose} className="text-2xl text-slate-400 hover:text-slate-700">
             ×
           </button>
@@ -199,12 +177,13 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-lg text-slate-700">
-            Título
+            Descrição
             <input
               required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
+              placeholder="Ex: Conta de luz"
             />
           </label>
 
@@ -213,7 +192,7 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
               Categoria
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as AgendaCategory)}
+                onChange={(e) => setCategory(e.target.value as BillCategory)}
                 className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
               >
                 {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
@@ -224,66 +203,37 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
               </select>
             </label>
 
-            {category === 'conta' && (
-              <label className="flex flex-col gap-1 text-lg text-slate-700">
-                Valor (R$)
-                <input
-                  required
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-                />
-              </label>
-            )}
-          </div>
-
-          <label className="flex flex-col gap-1 text-lg text-slate-700">
-            Local
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-              placeholder="Ex: Clínica São Lucas"
-            />
-          </label>
-
-          <div className="flex flex-col gap-4">
-            <DateTimeField label="Início" value={startAt} onChange={setStartAt} required />
-            <DateTimeField label="Fim (opcional)" value={endAt} onChange={setEndAt} />
-          </div>
-
-          <label className="flex flex-col gap-1 text-lg text-slate-700">
-            Descrição
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-lg text-slate-700">
-            Avisar quantos dias antes
-            <input
-              type="number"
-              min="0"
-              max="30"
-              value={reminderDaysBefore}
-              onChange={(e) => setReminderDaysBefore(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-              placeholder={category === 'consulta' ? '3 (padrão)' : 'sem aviso'}
-            />
-          </label>
-
-          {isAdmin && (
-            <label className="flex items-center gap-2 text-lg text-slate-700">
-              <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
-              Só aparece pra mim (agenda privada do Admin)
+            <label className="flex flex-col gap-1 text-lg text-slate-700">
+              Valor (R$)
+              <input
+                required
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
+              />
             </label>
-          )}
+          </div>
+
+          <DateTimeField label="Vencimento" value={dueDate} onChange={setDueDate} required showTime={false} />
+
+          <label className="flex flex-col gap-1 text-lg text-slate-700">
+            Quem paga
+            <select
+              value={payerProfileId}
+              onChange={(e) => setPayerProfileId(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
+            >
+              <option value="">Não definido</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           {mode === 'create' && (
             <div className="rounded-lg border border-slate-200 p-3">
@@ -316,14 +266,14 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
             </div>
           )}
 
-          {mode === 'edit' && currentItem && (
+          {mode === 'edit' && currentBill && (
             <div className="rounded-lg border border-slate-200 p-3">
               <p className="mb-2 text-lg font-medium text-slate-700">Documentos anexados</p>
               <ul className="mb-3 flex flex-col gap-2">
-                {currentItem.attachments.length === 0 && (
+                {currentBill.attachments.length === 0 && (
                   <li className="text-base text-slate-400">Nenhum documento anexado.</li>
                 )}
-                {currentItem.attachments.map((attachment) => (
+                {currentBill.attachments.map((attachment) => (
                   <li key={attachment.id} className="flex items-center justify-between gap-2 text-base">
                     <a
                       href={`${API_BASE}/uploads/${attachment.storagePath}`}
@@ -344,7 +294,7 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
                 ))}
               </ul>
               <label className="text-base text-slate-600">
-                Anexar PDF (ex: recomendações do exame)
+                Anexar PDF (ex: boleto, fatura)
                 <input
                   type="file"
                   accept="application/pdf"
@@ -359,26 +309,14 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-2">
               {mode === 'edit' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="rounded-lg border border-red-300 px-4 py-2 text-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    Excluir
-                  </button>
-                  {currentItem?.recurrenceGroupId && (
-                    <button
-                      type="button"
-                      onClick={handleDeleteSeries}
-                      disabled={deleting}
-                      className="rounded-lg border border-red-300 px-4 py-2 text-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      Excluir toda a série futura
-                    </button>
-                  )}
-                </>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="rounded-lg border border-red-300 px-4 py-2 text-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  Excluir
+                </button>
               )}
             </div>
             <div className="flex gap-2">

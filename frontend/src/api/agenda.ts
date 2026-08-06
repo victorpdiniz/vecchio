@@ -13,6 +13,8 @@ export interface Bill {
   isRecurring: boolean;
   recurrenceRule: string | null;
   status: 'pendente' | 'pago';
+  payerProfileId: string | null;
+  payerProfile: Profile | null;
   paidAt: string | null;
 }
 

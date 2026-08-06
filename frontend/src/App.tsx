@@ -4,6 +4,7 @@ import { RequireProfile } from './components/RequireProfile';
 import { ProfilePicker } from './pages/ProfilePicker';
 import { Dashboard } from './pages/Dashboard';
 import { Agenda } from './pages/Agenda';
+import { Bills } from './pages/Bills';
 import { Chat } from './pages/Chat';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 
@@ -21,10 +22,7 @@ export function App() {
       >
         <Route path="/inicio" element={<Dashboard />} />
         <Route path="/agenda" element={<Agenda />} />
-        <Route
-          path="/contas"
-          element={<PlaceholderPage title="Contas" description="Contas do mês e do ano." />}
-        />
+        <Route path="/contas" element={<Bills />} />
         <Route
           path="/remedios"
           element={<PlaceholderPage title="Remédios" description="Horários e doses dos remédios." />}

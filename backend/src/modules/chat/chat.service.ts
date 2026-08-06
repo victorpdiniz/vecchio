@@ -9,6 +9,17 @@ import { chatRepository } from './chat.repository.js';
 const CONTEXT_PAST_DAYS = 3;
 const CONTEXT_FUTURE_DAYS = 60;
 
+const BILL_CATEGORY_LABELS: Record<string, string> = {
+  luz: 'luz',
+  agua: 'água',
+  internet: 'internet',
+  telefone: 'telefone',
+  aluguel: 'aluguel',
+  saude: 'saúde',
+  mercado: 'mercado',
+  outro: 'outro',
+};
+
 function getModel() {
   if (!env.GEMINI_API_KEY) {
     throw new AppError(
@@ -35,8 +46,15 @@ async function buildAgendaContext(profileId: string | null) {
       const when = format(item.startAt, "EEEE, dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
       const local = item.location ? ` em ${item.location}` : '';
       const responsavel = item.ownerProfile?.name ?? 'toda a família';
-      const valor = item.bill ? ` — valor: R$ ${item.bill.amount.toFixed(2).replace('.', ',')}` : '';
-      return `- ${item.title} (categoria: ${item.category}) — ${when}${local} — responsável: ${responsavel}${valor}`;
+      const bill = item.bill;
+      const contaInfo = bill
+        ? ` — conta de ${BILL_CATEGORY_LABELS[bill.category] ?? bill.category}, valor: R$ ${bill.amount
+            .toFixed(2)
+            .replace('.', ',')}, status: ${bill.status === 'pago' ? 'paga' : 'pendente'}${
+            bill.payerProfile ? `, quem paga: ${bill.payerProfile.name}` : ''
+          }`
+        : '';
+      return `- ${item.title} (categoria: ${item.category}) — ${when}${local} — responsável: ${responsavel}${contaInfo}`;
     })
     .join('\n');
 }

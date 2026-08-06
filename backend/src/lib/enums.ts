@@ -11,6 +11,18 @@ export type AgendaCategory = (typeof AGENDA_CATEGORIES)[number];
 export const BILL_STATUSES = ['pendente', 'pago'] as const;
 export type BillStatus = (typeof BILL_STATUSES)[number];
 
+export const BILL_CATEGORIES = [
+  'luz',
+  'agua',
+  'internet',
+  'telefone',
+  'aluguel',
+  'saude',
+  'mercado',
+  'outro',
+] as const;
+export type BillCategory = (typeof BILL_CATEGORIES)[number];
+
 export const NOTIFICATION_CHANNELS = ['inapp', 'email'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 

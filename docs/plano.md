@@ -215,20 +215,30 @@ Production/real deployment is explicitly out of Docker per the user's request
       recarregar) e envia email via nodemailer a cada perfil da família
       (compromissos privados do admin notificam só o admin). SMTP não
       configurado apenas loga em vez de falhar.
-- [~] **3. Bills/Contas module** — só o alicerce: `bills.repository.ts`
-      (create/update/sum) usado pelo módulo de Agenda para registrar o
-      valor de compromissos da categoria "conta" e somar o total gasto.
-      Ainda faltam: controller/service dedicados, tela de listagem,
-      marcar como pago, categorias/relatórios.
-- [~] **4. PDF upload & simplified viewer** — implementado para
-      compromissos da agenda (`Attachment.agendaItemId`), não para Bills
-      diretamente ainda (o modelo já suporta os dois).
+- [x] **3. Bills/Contas module** — `bills.controller.ts`/`bills.service.ts`
+      dedicados: CRUD completo, categorias próprias de conta (`luz`,
+      `agua`, `internet`, `telefone`, `aluguel`, `saude`, `mercado`,
+      `outro` — ver `BILL_CATEGORIES` em `enums.ts`), templates
+      recorrentes (reaproveita `computeOccurrenceDates`, mesma regra de 1
+      ano/200 ocorrências da Agenda), marcar como pago/pendente, resumo
+      mensal/anual com total e detalhamento por categoria. Toda conta
+      criada aqui gera um compromisso espelhado na agenda (categoria
+      "conta", compartilhado) e sincroniza com o Google Agenda — simétrico
+      ao que a Agenda já fazia ao criar uma "conta" por lá; editar/excluir
+      a conta atualiza/remove o compromisso vinculado também. Tela
+      `frontend/src/pages/Bills.tsx` (filtros por mês/status/categoria,
+      cartão de resumo) + `BillModal.tsx` substituem o placeholder de
+      `/contas`.
+- [x] **4. PDF upload & simplified viewer** — agora também para Bills
+      diretamente (`POST/DELETE /api/bills/:id/attachments`, mesmo padrão
+      de anexos da Agenda), além dos compromissos da agenda já existentes.
 - [ ] **5. Password vault** — encrypted CRUD + list/search UI.
 - [ ] **6. Medicines** — CRUD + daily schedule + "hoje" dashboard widget.
-- [~] **7. Chat assistant** — Gemini integrado e funcionando, mas o
-      contexto hoje é só a agenda (compromissos dos próximos ~60 dias).
-      Quando os módulos de Contas/Remédios existirem, o contexto deve
-      incluir esses dados também.
+- [~] **7. Chat assistant** — Gemini integrado e funcionando; o contexto é
+      a agenda dos próximos ~60 dias, que agora também traz categoria,
+      status (paga/pendente) e quem paga de cada conta (toda conta tem um
+      compromisso espelhado, então já aparece automaticamente). Falta
+      incluir o contexto de Remédios quando esse módulo existir.
 - [ ] **8. USB folder transfer** — drive detection + copy flow.
 - [ ] **9. Accessibility pass** — "modo simples" theme, full keyboard nav;
       write the remote-desktop setup runbook (`docs/remote-access-setup.md`).

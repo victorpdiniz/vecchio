@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 
 const itemInclude = {
   ownerProfile: true,
-  bill: true,
+  bill: { include: { payerProfile: true } },
   attachments: true,
 } satisfies Prisma.AgendaItemInclude;
 

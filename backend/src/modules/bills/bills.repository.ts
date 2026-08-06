@@ -1,18 +1,14 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 
-// Semente mínima do futuro módulo de Contas (fase 3 do plano). Por enquanto
-// só o necessário para o módulo de Agenda registrar o valor de compromissos
-// da categoria "conta" e somar o total gasto num período.
+const billInclude = {
+  payerProfile: true,
+  attachments: true,
+  agendaItem: true,
+} satisfies Prisma.BillInclude;
+
 export const billsRepository = {
-  create(data: {
-    description: string;
-    amount: number;
-    dueDate: Date;
-    category: string;
-    isRecurring: boolean;
-    recurrenceRule?: string | null;
-    createdById: string;
-  }) {
+  create(data: Prisma.BillUncheckedCreateInput) {
     return prisma.bill.create({ data });
   },
 
@@ -20,10 +16,33 @@ export const billsRepository = {
     return prisma.bill.findUnique({ where: { id } });
   },
 
-  update(
-    id: string,
-    data: Partial<{ description: string; amount: number; dueDate: Date; category: string }>,
-  ) {
+  findByIdWithRelations(id: string) {
+    return prisma.bill.findUnique({ where: { id }, include: billInclude });
+  },
+
+  findMany(filters: { from?: Date; to?: Date; status?: string; category?: string }) {
+    const where: Prisma.BillWhereInput = {};
+    if (filters.from || filters.to) {
+      where.dueDate = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+    if (filters.status) where.status = filters.status;
+    if (filters.category) where.category = filters.category;
+
+    return prisma.bill.findMany({ where, include: billInclude, orderBy: { dueDate: 'asc' } });
+  },
+
+  update(id: string, data: Partial<{
+    description: string;
+    amount: number;
+    dueDate: Date;
+    category: string;
+    payerProfileId: string | null;
+    status: string;
+    paidAt: Date | null;
+  }>) {
     return prisma.bill.update({ where: { id }, data });
   },
 
@@ -37,5 +56,26 @@ export const billsRepository = {
       _sum: { amount: true },
       _count: true,
     });
+  },
+
+  sumByCategory(from: Date, to: Date) {
+    return prisma.bill.groupBy({
+      by: ['category'],
+      where: { dueDate: { gte: from, lte: to } },
+      _sum: { amount: true },
+      _count: true,
+    });
+  },
+
+  createAttachment(data: Prisma.AttachmentUncheckedCreateInput) {
+    return prisma.attachment.create({ data });
+  },
+
+  findAttachment(id: string) {
+    return prisma.attachment.findUnique({ where: { id } });
+  },
+
+  deleteAttachment(id: string) {
+    return prisma.attachment.delete({ where: { id } });
   },
 };
