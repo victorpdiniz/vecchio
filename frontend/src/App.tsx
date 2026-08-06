@@ -8,7 +8,7 @@ import { Bills } from './pages/Bills';
 import { Medicines } from './pages/Medicines';
 import { Passwords } from './pages/Passwords';
 import { Chat } from './pages/Chat';
-import { PlaceholderPage } from './pages/PlaceholderPage';
+import { UsbTransfer } from './pages/UsbTransfer';
 
 export function App() {
   return (
@@ -28,10 +28,7 @@ export function App() {
         <Route path="/remedios" element={<Medicines />} />
         <Route path="/senhas" element={<Passwords />} />
         <Route path="/chat" element={<Chat />} />
-        <Route
-          path="/pendrive"
-          element={<PlaceholderPage title="Pendrive" description="Copiar pastas para um pendrive." />}
-        />
+        <Route path="/pendrive" element={<UsbTransfer />} />
       </Route>
     </Routes>
   );

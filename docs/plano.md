@@ -253,7 +253,25 @@ Production/real deployment is explicitly out of Docker per the user's request
 - [x] **7. Chat assistant** — Gemini integrado e funcionando; o contexto
       inclui agenda (com categoria/status/quem paga de cada conta) e
       agora também os remédios ativos com seus horários e dias da semana.
-- [ ] **8. USB folder transfer** — drive detection + copy flow.
+- [x] **8. USB folder transfer** — `usb.controller.ts`/`.service.ts`:
+      navegação de pastas (`GET /api/usb/folders`, escopado a
+      `USB_BASE_DIR`), detecção de pendrives (`GET /api/usb/drives`, lista
+      subpastas de `USB_DRIVES_DIR` — cada uma representa um drive
+      montado), cópia recursiva assíncrona (`POST /api/usb/copy` retorna
+      um job id na hora, front acompanha por polling em
+      `GET /api/usb/jobs/:id`; estado do job fica só em memória, não
+      precisa sobreviver a um restart do backend). Todo caminho vindo da
+      API é resolvido e validado contra o diretório base antes de tocar o
+      filesystem (`resolveWithinBase` em `usb.service.ts`), pra não
+      permitir path traversal via `..`. `docker-compose.yml` agora monta
+      `USB_BASE_DIR`/`USB_DRIVES_DIR` a partir de
+      `USB_HOST_DOCUMENTS_DIR`/`USB_HOST_DRIVES_DIR` (variáveis do host,
+      opcionais); sem elas, cai num sandbox local versionado em
+      `backend/usb-sandbox/` — dá pra testar o fluxo completo sem tocar
+      no filesystem real da máquina. Em produção (fora do Docker/já como
+      app Electron), essas variáveis apontam pras pastas reais do host.
+      Tela `UsbTransfer.tsx`: fluxo em duas colunas "escolher pasta →
+      escolher pendrive → copiar", com barra de progresso via polling.
 - [ ] **9. Accessibility pass** — "modo simples" theme, full keyboard nav;
       write the remote-desktop setup runbook (`docs/remote-access-setup.md`).
 - [ ] **10. Windows packaging** — wrap with Electron, bundle SQLite + backend

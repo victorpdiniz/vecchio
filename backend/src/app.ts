@@ -11,6 +11,7 @@ import { billsController } from './modules/bills/bills.controller.js';
 import { googleCalendarController } from './modules/google-calendar/google-calendar.controller.js';
 import { passwordsController } from './modules/passwords/passwords.controller.js';
 import { medicinesController } from './modules/medicines/medicines.controller.js';
+import { usbController } from './modules/usb/usb.controller.js';
 import { chatController } from './modules/chat/chat.controller.js';
 import { notificationsController } from './modules/notifications/notifications.controller.js';
 
@@ -35,6 +36,7 @@ export async function buildApp() {
   await app.register(googleCalendarController);
   await app.register(passwordsController);
   await app.register(medicinesController);
+  await app.register(usbController);
   await app.register(chatController);
   await app.register(notificationsController);
 
