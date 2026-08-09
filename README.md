@@ -42,6 +42,19 @@ docker compose up --build
 O `docker compose up` já aplica as migrations do Prisma e cria os 4 perfis
 iniciais (Vô, Vó, Pai, Admin) automaticamente.
 
+> **Depois de adicionar uma dependência nova** (mudou `package.json`), o
+> volume nomeado de `node_modules` fica desatualizado e o container quebra
+> com "Cannot find package". Nesse caso, rode
+> `docker compose down -v && docker compose up --build` para recriar os
+> volumes do zero.
+
+Para sincronizar a agenda da família com o Google Agenda pessoal do Admin,
+siga [`docs/google-calendar-setup.md`](./docs/google-calendar-setup.md) —
+opcional, o resto do sistema funciona normalmente sem isso. O chat também
+precisa de uma `GEMINI_API_KEY` (crie uma em
+https://aistudio.google.com/apikey e cole em `backend/.env`) — sem ela, o
+chat mostra um aviso pedindo para configurar em vez de travar.
+
 ### Sem Docker
 
 ```bash

@@ -1,5 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
+import { useAccessibility } from '../context/AccessibilityContext';
+import { NotificationsBanner } from './notifications/NotificationsBanner';
 
 const NAV_ITEMS = [
   { to: '/inicio', label: 'Início' },
@@ -13,6 +15,7 @@ const NAV_ITEMS = [
 
 export function AppLayout() {
   const { currentProfile, clearProfile } = useProfile();
+  const { simpleMode, toggleSimpleMode } = useAccessibility();
   const navigate = useNavigate();
 
   const handleSwitchProfile = () => {
@@ -46,16 +49,31 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
-        <button
-          type="button"
-          onClick={handleSwitchProfile}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-lg font-medium text-slate-700 hover:bg-slate-100"
-        >
-          Trocar de perfil
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={toggleSimpleMode}
+            aria-pressed={simpleMode}
+            className={`rounded-lg border px-4 py-2 text-lg font-medium ${
+              simpleMode
+                ? 'border-blue-700 bg-blue-600 text-white hover:bg-blue-700'
+                : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            {simpleMode ? 'Modo simples: ligado' : 'Modo simples'}
+          </button>
+          <button
+            type="button"
+            onClick={handleSwitchProfile}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-lg font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Trocar de perfil
+          </button>
+        </div>
       </header>
 
       <main className="px-6 py-8">
+        <NotificationsBanner />
         <Outlet />
       </main>
     </div>

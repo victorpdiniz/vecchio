@@ -20,6 +20,12 @@ backend/prisma/*.db-journal
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+# Sandbox local do utilitário de pendrive (fase 8) — mantém a estrutura
+# de exemplo em usb-sandbox/documentos/, ignora o que for copiado pra
+# "dentro do pendrive" durante testes.
+backend/usb-sandbox/drives/*
+!backend/usb-sandbox/drives/.gitkeep
+
 # Logs
 *.log
 npm-debug.log*
