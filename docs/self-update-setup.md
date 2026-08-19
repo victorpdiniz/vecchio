@@ -89,6 +89,44 @@ enxergue o `docker` instalado), então a forma mais simples de rodar é via
 o nome do ambiente que o prompt do Git Bash mostra (`MSYSTEM=MINGW64`) — é o
 Git Bash padrão, nada diferente do que já está descrito aqui.
 
+### Jeito rápido: `scripts/install-update-watcher.ps1`
+
+1. Abra o **PowerShell** dentro da pasta do projeto (não precisa ser como
+   administrador, a não ser que sua conta exija privilégio elevado pra rodar
+   o Docker) e rode:
+
+   ```powershell
+   .\scripts\install-update-watcher.ps1
+   ```
+
+   Se o Windows bloquear a execução ("running scripts is disabled on this
+   system"), rode uma vez com a política liberada só pra esse processo:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\install-update-watcher.ps1
+   ```
+
+2. O script acha o `bash.exe` do Git Bash sozinho, registra a tarefa
+   "VecchioUpdateWatcher" no Agendador de Tarefas (repetindo a cada minuto,
+   indefinidamente, seguindo a branch `dev`) e já imprime os comandos pra
+   testar, ver o log e desinstalar depois. Ele é idempotente — pode rodar de
+   novo sempre que quiser (por exemplo, depois de mover o repositório de
+   pasta) que ele substitui a tarefa antiga em vez de duplicar.
+
+3. Pra conferir que funcionou: abra o app, aperte "Atualizar" (com uma
+   atualização disponível) e espere até um minuto — o botão deve sair de
+   "Atualizando…" sozinho. Ou dispare a tarefa na hora, sem esperar o
+   próximo minuto (o próprio script imprime esse comando no final):
+
+   ```powershell
+   Start-ScheduledTask -TaskName 'VecchioUpdateWatcher'
+   ```
+
+### Ou na mão, sem o script
+
+Se preferir montar a tarefa você mesmo (ou o script acima não achar o
+`bash.exe`), o equivalente manual é:
+
 1. Confirme o caminho do `bash.exe` do Git Bash — normalmente
    `C:\Program Files\Git\bin\bash.exe`. Pra checar, abra o Git Bash e rode:
 
@@ -96,14 +134,13 @@ Git Bash padrão, nada diferente do que já está descrito aqui.
    which bash
    ```
 
-2. Abra o **PowerShell** (não precisa ser como administrador, a não ser que
-   sua conta exija privilégio elevado pra rodar `docker`) e registre a
-   tarefa, ajustando os dois caminhos entre aspas pro seu usuário e onde o
-   repositório está clonado. O `--login` é importante: sem ele, o Agendador
-   de Tarefas chama o `bash.exe` "cru", sem passar pelo `/etc/profile` que
-   normalmente monta o ambiente MINGW64 (inclusive o `PATH` com as pastas
-   que o Docker Desktop registrou) — com `--login`, o script roda num
-   ambiente igual ao que você já usa quando abre o Git Bash manualmente:
+2. No PowerShell, ajustando os dois caminhos entre aspas pro seu usuário e
+   onde o repositório está clonado. O `--login` é importante: sem ele, o
+   Agendador de Tarefas chama o `bash.exe` "cru", sem passar pelo
+   `/etc/profile` que normalmente monta o ambiente MINGW64 (inclusive o
+   `PATH` com as pastas que o Docker Desktop registrou) — com `--login`, o
+   script roda num ambiente igual ao que você já usa quando abre o Git Bash
+   manualmente:
 
    ```powershell
    $action = New-ScheduledTaskAction -Execute "C:\Program Files\Git\bin\bash.exe" -Argument '--login "C:\Users\SEU_USUARIO\vecchio\scripts\vecchio-update-watcher.sh"'
@@ -122,15 +159,13 @@ Git Bash padrão, nada diferente do que já está descrito aqui.
 
 4. Pra conferir que funcionou: abra o app, aperte "Atualizar" (com uma
    atualização disponível) e espere até um minuto — o botão deve sair de
-   "Atualizando…" sozinho. Se quiser ver o watcher rodando na hora, pode
-   testar manualmente antes de agendar:
+   "Atualizando…" sozinho. Se quiser rodar o script na mão antes de agendar
+   (sem marcador `.git/VECCHIO_UPDATE_REQUESTED`, ele só sai sem fazer nada
+   — normal fora do fluxo do botão):
 
    ```
    bash scripts/vecchio-update-watcher.sh
    ```
-
-   (sem marcador `.git/VECCHIO_UPDATE_REQUESTED`, o script só sai sem fazer
-   nada — normal fora do fluxo do botão.)
 
 5. Pra desfazer/remover a tarefa depois, se precisar:
 
