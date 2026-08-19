@@ -147,12 +147,16 @@ model NotificationLog {
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
-  profileId String
-  profile   Profile  @relation(fields: [profileId], references: [id])
-  role      String // "user" | "model"
-  content   String
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id])
+  role          String // "user" | "model"
+  content       String
+  // Ids (csv) dos AgendaItem usados para responder — só em role="model",
+  // para o histórico conseguir remontar os cards sem precisar perguntar
+  // de novo ao Gemini.
+  agendaItemIds String?
+  createdAt     DateTime @default(now())
 }
 
 // Conexão OAuth do Admin com o Google Calendar — linha única, usada para

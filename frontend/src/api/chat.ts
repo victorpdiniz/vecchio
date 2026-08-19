@@ -1,4 +1,5 @@
 import { api } from './client';
+import type { AgendaItem } from './agenda';
 
 export interface ChatMessage {
   id: string;
@@ -6,6 +7,12 @@ export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
   createdAt: string;
+  agendaItems: AgendaItem[];
+}
+
+export interface ChatAnswer {
+  answer: string;
+  agendaItems: AgendaItem[];
 }
 
 export async function fetchChatHistory(): Promise<ChatMessage[]> {
@@ -13,7 +20,7 @@ export async function fetchChatHistory(): Promise<ChatMessage[]> {
   return data;
 }
 
-export async function sendChatMessage(message: string): Promise<string> {
-  const { data } = await api.post<{ answer: string }>('/api/chat/messages', { message });
-  return data.answer;
+export async function sendChatMessage(message: string): Promise<ChatAnswer> {
+  const { data } = await api.post<ChatAnswer>('/api/chat/messages', { message });
+  return data;
 }

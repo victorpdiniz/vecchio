@@ -25,6 +25,10 @@ export const agendaRepository = {
     return prisma.agendaItem.findUnique({ where: { id }, include: itemInclude });
   },
 
+  findManyByIds(ids: string[]) {
+    return prisma.agendaItem.findMany({ where: { id: { in: ids } }, include: itemInclude });
+  },
+
   findFutureBySeries(recurrenceGroupId: string, from: Date) {
     return prisma.agendaItem.findMany({
       where: { recurrenceGroupId, startAt: { gte: from } },

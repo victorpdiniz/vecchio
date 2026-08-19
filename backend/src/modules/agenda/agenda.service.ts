@@ -34,6 +34,11 @@ export const agendaService = {
     return agendaRepository.findManyInRange(from, to);
   },
 
+  listByIds(ids: string[]) {
+    if (ids.length === 0) return Promise.resolve([]);
+    return agendaRepository.findManyByIds(ids);
+  },
+
   async getById(id: string) {
     const item = await agendaRepository.findById(id);
     if (!item) {

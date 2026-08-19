@@ -1,11 +1,64 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { getErrorMessage } from '../api/client';
 import { fetchChatHistory, sendChatMessage, type ChatMessage } from '../api/chat';
+import type { AgendaItem, AgendaCategory } from '../api/agenda';
 
 interface DisplayMessage {
   id: string;
   role: 'user' | 'model';
   content: string;
+  agendaItems: AgendaItem[];
+}
+
+const CATEGORY_COLORS: Record<AgendaCategory, string> = {
+  consulta: '#2563eb',
+  exame: '#7c3aed',
+  conta: '#dc2626',
+  remedio: '#16a34a',
+  viagem: '#0891b2',
+  outro: '#6b7280',
+};
+
+const CATEGORY_LABELS: Record<AgendaCategory, string> = {
+  consulta: 'Consulta',
+  exame: 'Exame',
+  conta: 'Conta',
+  remedio: 'Remédio',
+  viagem: 'Viagem',
+  outro: 'Outro',
+};
+
+// Card compacto pra representar um compromisso citado na resposta do chat —
+// mesma paleta de categoria do calendário, pra ficar reconhecível de cara
+// em vez de mais um bloco de texto.
+function AgendaResultCard({ item }: { item: AgendaItem }) {
+  const color = CATEGORY_COLORS[item.category] ?? CATEGORY_COLORS.outro;
+  const label = CATEGORY_LABELS[item.category] ?? item.category;
+  const when = item.isAllDay
+    ? format(new Date(item.startAt), "EEEE, dd 'de' MMMM", { locale: ptBR })
+    : format(new Date(item.startAt), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR });
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" style={{ borderLeft: `4px solid ${color}` }}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium text-slate-800">{item.title}</span>
+        <span
+          className="shrink-0 rounded-full px-2 py-0.5 text-sm font-medium text-white"
+          style={{ backgroundColor: color }}
+        >
+          {label}
+        </span>
+      </div>
+      <p className="mt-1 text-base capitalize text-slate-600">{when}</p>
+      {item.bill && (
+        <p className="mt-1 text-base text-slate-600">
+          R$ {item.bill.amount.toFixed(2).replace('.', ',')} · {item.bill.status === 'pago' ? 'paga' : 'pendente'}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function Chat() {
@@ -18,7 +71,9 @@ export function Chat() {
 
   useEffect(() => {
     fetchChatHistory()
-      .then((history: ChatMessage[]) => setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content }))))
+      .then((history: ChatMessage[]) =>
+        setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content, agendaItems: m.agendaItems }))),
+      )
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, []);
@@ -34,12 +89,12 @@ export function Chat() {
 
     setError(null);
     setInput('');
-    setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: 'user', content: question }]);
+    setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: 'user', content: question, agendaItems: [] }]);
     setSending(true);
 
     try {
-      const answer = await sendChatMessage(question);
-      setMessages((prev) => [...prev, { id: `local-${Date.now()}-reply`, role: 'model', content: answer }]);
+      const { answer, agendaItems } = await sendChatMessage(question);
+      setMessages((prev) => [...prev, { id: `local-${Date.now()}-reply`, role: 'model', content: answer, agendaItems }]);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -62,15 +117,21 @@ export function Chat() {
 
         <div className="flex flex-col gap-3">
           {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`max-w-[85%] rounded-2xl px-4 py-2 text-lg ${
-                message.role === 'user'
-                  ? 'ml-auto bg-blue-600 text-white'
-                  : 'mr-auto bg-slate-100 text-slate-800'
-              }`}
-            >
-              {message.content}
+            <div key={message.id} className="flex flex-col gap-2">
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-2 text-lg ${
+                  message.role === 'user' ? 'ml-auto bg-blue-600 text-white' : 'mr-auto bg-slate-100 text-slate-800'
+                }`}
+              >
+                {message.content}
+              </div>
+              {message.agendaItems.length > 0 && (
+                <div className="mr-auto flex w-full max-w-[85%] flex-col gap-2">
+                  {message.agendaItems.map((item) => (
+                    <AgendaResultCard key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

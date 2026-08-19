@@ -1,8 +1,7 @@
 import nodemailer from 'nodemailer';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import type { AgendaItem } from '@prisma/client';
 import { env } from '../../lib/env.js';
+import { formatBR } from '../../lib/timezone.js';
 
 // Sem SMTP configurado (ex: dev sem essas variáveis no .env), o transporte
 // fica nulo e o envio vira um log — lembrete por email é secundário e não
@@ -17,9 +16,7 @@ const transporter = env.SMTP_HOST
   : null;
 
 export async function sendReminderEmail(to: string, item: AgendaItem, reminderLabel: string) {
-  const dateLabel = item.isAllDay
-    ? format(item.startAt, 'EEEE, dd/MM', { locale: ptBR })
-    : format(item.startAt, "EEEE, dd/MM 'às' HH:mm", { locale: ptBR });
+  const dateLabel = item.isAllDay ? formatBR(item.startAt, 'EEEE, dd/MM') : formatBR(item.startAt, "EEEE, dd/MM 'às' HH:mm");
   const subject = `Lembrete: ${item.title}`;
   const text = [`Você tem um compromisso em breve: ${item.title}`, `Quando: ${dateLabel}`, `Lembrete: ${reminderLabel}`].join(
     '\n',

@@ -1,10 +1,17 @@
 import { prisma } from '../../lib/prisma.js';
 
 export const chatRepository = {
-  async saveExchange(profileId: string, userMessage: string, modelAnswer: string) {
+  async saveExchange(profileId: string, userMessage: string, modelAnswer: string, agendaItemIds: string[]) {
     await prisma.$transaction([
       prisma.chatMessage.create({ data: { profileId, role: 'user', content: userMessage } }),
-      prisma.chatMessage.create({ data: { profileId, role: 'model', content: modelAnswer } }),
+      prisma.chatMessage.create({
+        data: {
+          profileId,
+          role: 'model',
+          content: modelAnswer,
+          agendaItemIds: agendaItemIds.length > 0 ? agendaItemIds.join(',') : null,
+        },
+      }),
     ]);
   },
 

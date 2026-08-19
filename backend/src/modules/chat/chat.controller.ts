@@ -19,7 +19,6 @@ export async function chatController(app: FastifyInstance) {
   app.post('/api/chat/messages', async (request) => {
     const profileId = requireProfile(request.profileId);
     const { message } = sendMessageSchema.parse(request.body);
-    const answer = await chatService.ask(profileId, message);
-    return { answer };
+    return chatService.ask(profileId, message);
   });
 }
