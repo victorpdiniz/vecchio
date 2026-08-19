@@ -1,12 +1,15 @@
 import { GoogleGenerativeAI, SchemaType, type Content } from '@google/generative-ai';
 import { addDays, subDays } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
+import { ZodError } from 'zod';
 import { env } from '../../lib/env.js';
 import { AppError } from '../../lib/errors.js';
 import { APP_TIME_ZONE, formatBR } from '../../lib/timezone.js';
 import { agendaService } from '../agenda/agenda.service.js';
 import { medicinesService } from '../medicines/medicines.service.js';
+import { createMedicineSchema } from '../medicines/medicines.schema.js';
 import { billsService } from '../bills/bills.service.js';
+import { profilesRepository } from '../profiles/profiles.repository.js';
 import { chatRepository } from './chat.repository.js';
 import type { AgendaCategory } from '../../lib/enums.js';
 import type { ProposedAction } from './chat.types.js';
@@ -52,26 +55,47 @@ const responseSchema = {
     proposedAction: {
       type: SchemaType.OBJECT,
       properties: {
-        kind: { type: SchemaType.STRING }, // "none" | "mark_bill_paid" | "create_appointment"
+        kind: { type: SchemaType.STRING }, // "none" | "mark_bill_paid" | "create_appointment" | "create_medicine"
         billId: { type: SchemaType.STRING },
         appointmentTitle: { type: SchemaType.STRING },
         appointmentCategory: { type: SchemaType.STRING },
         appointmentStartAt: { type: SchemaType.STRING }, // ISO 8601
         appointmentIsAllDay: { type: SchemaType.BOOLEAN },
         appointmentAmount: { type: SchemaType.NUMBER },
+        medicineName: { type: SchemaType.STRING },
+        medicineDosage: { type: SchemaType.STRING },
+        medicineNotes: { type: SchemaType.STRING },
+        medicineProfileId: { type: SchemaType.STRING },
+        medicineStartDate: { type: SchemaType.STRING }, // "AAAA-MM-DD"
+        medicineEndDate: { type: SchemaType.STRING }, // "AAAA-MM-DD", vazio se não houver prazo
+        medicineSchedules: {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              timeOfDay: { type: SchemaType.STRING }, // "HH:mm"
+              daysOfWeek: { type: SchemaType.ARRAY, items: { type: SchemaType.NUMBER } }, // 0=domingo .. 6=sábado
+            },
+            required: ['timeOfDay', 'daysOfWeek'],
+          },
+        },
         confirmationPrompt: { type: SchemaType.STRING },
       },
-      // billId/appointment* forçados a sempre aparecer (mesmo vazios quando
-      // irrelevantes) porque, deixados como opcionais, o modelo às vezes
-      // preenchia só "appointmentTitle" e esquecia categoria/data — sem os
-      // 3 campos, confirmAction não tem o que precisa pra criar o
-      // compromisso, e a ação falha depois de já ter sido proposta.
+      // billId/appointment*/medicine* forçados a sempre aparecer (mesmo
+      // vazios quando irrelevantes) porque, deixados como opcionais, o
+      // modelo às vezes preenchia só um campo e esquecia os outros — sem
+      // todos eles, confirmAction não tem o que precisa pra executar a
+      // ação, e ela falha depois de já ter sido proposta.
       required: [
         'kind',
         'billId',
         'appointmentTitle',
         'appointmentCategory',
         'appointmentStartAt',
+        'medicineName',
+        'medicineDosage',
+        'medicineStartDate',
+        'medicineSchedules',
         'confirmationPrompt',
       ],
     },
@@ -80,13 +104,15 @@ const responseSchema = {
 };
 
 function buildSystemInstruction(): string {
-  const today = formatBR(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy");
+  const now = new Date();
+  const today = formatBR(now, "EEEE, dd 'de' MMMM 'de' yyyy");
+  const todayIso = formatBR(now, 'yyyy-MM-dd');
   return `Você é o assistente do Vecchio, um sistema de agenda familiar para uma família brasileira.
 Responda sempre em português do Brasil, em frases curtas, simples e diretas — a pessoa que está perguntando pode ser idosa e não tem familiaridade com tecnologia.
-Hoje é ${today}.
+Hoje é ${today} (${todayIso} no formato AAAA-MM-DD).
 Use SOMENTE as informações fornecidas no contexto de cada pergunta para responder. Se a resposta não estiver nelas, diga educadamente que não encontrou essa informação — não invente datas, valores, remédios ou compromissos.
 
-Além de responder perguntas, você pode propor duas ações: marcar uma conta como paga, ou criar um compromisso na agenda. Você NUNCA executa essas ações sozinho e NUNCA diz que já fez algo — você só propõe, preenchendo "proposedAction", e o app pede confirmação ao usuário antes de aplicar. Se faltar alguma informação necessária (qual conta, data/hora do compromisso), pergunte no campo "answer" e devolva proposedAction com kind "none". Só preencha um kind diferente de "none" quando o usuário tiver claramente pedido uma dessas ações.
+Além de responder perguntas, você pode propor três ações: marcar uma conta como paga, criar um compromisso na agenda, ou cadastrar um novo remédio (na seção "Remédios" do app, não um compromisso de categoria "remedio"). Você NUNCA executa essas ações sozinho e NUNCA diz que já fez algo — você só propõe, preenchendo "proposedAction", e o app pede confirmação ao usuário antes de aplicar. Se faltar alguma informação necessária (qual conta, data/hora do compromisso, dosagem/horários do remédio), pergunte no campo "answer" e devolva proposedAction com kind "none". Só preencha um kind diferente de "none" quando o usuário tiver claramente pedido uma dessas ações.
 
 Responda sempre em JSON com três campos:
 - "answer": sua resposta em texto, como descrito acima.
@@ -94,6 +120,7 @@ Responda sempre em JSON com três campos:
 - "proposedAction": um objeto com "kind" e os campos daquela ação:
   - "mark_bill_paid": preencha "billId" (use o id exato de uma das contas pendentes listadas) e "confirmationPrompt" (uma pergunta curta, ex: "Marcar 'Aluguel' como paga?").
   - "create_appointment": preencha "appointmentTitle", "appointmentCategory" (consulta, exame, conta, remedio, viagem ou outro), "appointmentStartAt" (data e hora local de Brasília, formato ISO 8601 SEM fuso horário — ex: "2026-08-20T10:00:00" — calculada a partir da data de hoje), "appointmentIsAllDay" (true/false, opcional), "appointmentAmount" (obrigatório só se a categoria for "conta") e "confirmationPrompt".
+  - "create_medicine": preencha "medicineName", "medicineDosage" (ex: "20mg", "1 comprimido"), "medicineSchedules" (lista de horários; cada um tem "timeOfDay" no formato HH:mm e "daysOfWeek" = lista de números de 0 a 6, onde 0=domingo, 1=segunda, 2=terça, 3=quarta, 4=quinta, 5=sexta, 6=sábado — pra "todos os dias" use [0,1,2,3,4,5,6]), "medicineStartDate" (formato AAAA-MM-DD; use a data de hoje se a pessoa não disser outra), "medicineEndDate" (só se a pessoa pedir um prazo, mesmo formato — senão deixe vazio), "medicineProfileId" (id de "Familiares" abaixo, só se a pessoa disser pra quem é o remédio — senão deixe vazio, e o remédio fica pra toda a família) e "confirmationPrompt".
   - Se não houver ação a propor, devolva só { "kind": "none" }.`;
 }
 
@@ -195,6 +222,17 @@ async function buildBillsContext() {
     .join('\n');
 }
 
+// Lista os perfis da família com id, pro modelo poder preencher
+// "medicineProfileId" quando a pessoa disser pra quem é o remédio (ex: "é
+// pro Vô") em vez de inventar um id.
+async function buildProfilesContext() {
+  const profiles = await profilesRepository.findAll();
+  if (profiles.length === 0) {
+    return 'Nenhum perfil cadastrado.';
+  }
+  return profiles.map((profile) => `- [id: ${profile.id}] ${profile.name}`).join('\n');
+}
+
 function parseResponse(raw: string): { answer: string; relevantIds: string[]; proposedAction: ProposedAction } {
   try {
     const parsed = JSON.parse(raw) as {
@@ -220,10 +258,11 @@ function parseResponse(raw: string): { answer: string; relevantIds: string[]; pr
 export const chatService = {
   async ask(profileId: string, message: string) {
     const model = getModel();
-    const [agendaContext, medicinesContext, billsContext, history] = await Promise.all([
+    const [agendaContext, medicinesContext, billsContext, profilesContext, history] = await Promise.all([
       buildAgendaContext(),
       buildMedicinesContext(),
       buildBillsContext(),
+      buildProfilesContext(),
       buildHistory(profileId),
     ]);
 
@@ -235,6 +274,9 @@ ${medicinesContext}
 
 Contas pendentes:
 ${billsContext}
+
+Familiares cadastrados:
+${profilesContext}
 
 Pergunta: ${message}`;
 
@@ -305,14 +347,39 @@ Pergunta: ${message}`;
           resultText = 'Compromisso criado.';
           break;
         }
+        case 'create_medicine': {
+          if (!action.medicineName || !action.medicineDosage || !action.medicineSchedules?.length) {
+            throw new AppError('Faltam dados para cadastrar o remédio.', 400);
+          }
+          // Reaproveita o mesmo Zod schema do endpoint POST /api/medicines
+          // (regex de HH:mm, faixa de daysOfWeek, endDate >= startDate etc.)
+          // em vez de duplicar essas validações aqui.
+          const input = createMedicineSchema.parse({
+            name: action.medicineName,
+            dosage: action.medicineDosage,
+            profileId: action.medicineProfileId || undefined,
+            notes: action.medicineNotes || undefined,
+            startDate: action.medicineStartDate || formatBR(new Date(), 'yyyy-MM-dd'),
+            endDate: action.medicineEndDate || undefined,
+            schedules: action.medicineSchedules,
+          });
+          await medicinesService.create(input);
+          resultText = `Remédio "${action.medicineName}" cadastrado.`;
+          break;
+        }
         default:
           throw new AppError('Ação desconhecida.', 400);
       }
     } catch (error) {
       await chatRepository.updateProposedActionStatus(messageId, 'cancelled');
-      const friendlyMessage = error instanceof AppError ? error.message : 'Não foi possível concluir a ação.';
+      const friendlyMessage =
+        error instanceof AppError
+          ? error.message
+          : error instanceof ZodError
+            ? (error.issues[0]?.message ?? 'Dados inválidos para essa ação.')
+            : 'Não foi possível concluir a ação.';
       await chatRepository.appendSystemMessage(actorProfileId, `Não consegui: ${friendlyMessage}`);
-      throw error instanceof AppError ? error : new AppError(friendlyMessage, 502);
+      throw error instanceof AppError ? error : new AppError(friendlyMessage, error instanceof ZodError ? 400 : 502);
     }
 
     await chatRepository.updateProposedActionStatus(messageId, 'confirmed');

@@ -1,7 +1,12 @@
 import { api } from './client';
 import type { AgendaItem } from './agenda';
 
-export type ProposedActionKind = 'none' | 'mark_bill_paid' | 'create_appointment';
+export type ProposedActionKind = 'none' | 'mark_bill_paid' | 'create_appointment' | 'create_medicine';
+
+export interface ProposedActionMedicineSchedule {
+  timeOfDay: string;
+  daysOfWeek: number[];
+}
 
 export interface ProposedAction {
   kind: ProposedActionKind;
@@ -11,6 +16,13 @@ export interface ProposedAction {
   appointmentStartAt?: string;
   appointmentIsAllDay?: boolean;
   appointmentAmount?: number;
+  medicineName?: string;
+  medicineDosage?: string;
+  medicineNotes?: string;
+  medicineProfileId?: string;
+  medicineStartDate?: string;
+  medicineEndDate?: string;
+  medicineSchedules?: ProposedActionMedicineSchedule[];
   confirmationPrompt?: string;
 }
 
