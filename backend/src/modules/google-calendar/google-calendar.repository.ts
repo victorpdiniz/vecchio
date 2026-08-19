@@ -37,7 +37,7 @@ export const googleCalendarRepository = {
   // compromisso foi feito antes da conta admin conectar o Google Agenda.
   findUnsyncedAgendaItems() {
     return prisma.agendaItem.findMany({
-      where: { isPrivate: false, googleEventId: null },
+      where: { googleEventId: null },
     });
   },
 

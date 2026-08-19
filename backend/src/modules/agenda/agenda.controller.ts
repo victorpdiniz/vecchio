@@ -1,8 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { AppError } from '../../lib/errors.js';
 import {
   agendaIdParamSchema,
-  attachmentIdParamSchema,
   createAgendaItemSchema,
   dateRangeQuerySchema,
   seriesParamSchema,
@@ -13,7 +11,7 @@ import { agendaService } from './agenda.service.js';
 export async function agendaController(app: FastifyInstance) {
   app.get('/api/agenda', async (request) => {
     const { from, to } = dateRangeQuerySchema.parse(request.query);
-    return agendaService.list(request.profileId, from, to);
+    return agendaService.list(from, to);
   });
 
   app.get('/api/agenda/summary', async (request) => {
@@ -23,7 +21,7 @@ export async function agendaController(app: FastifyInstance) {
 
   app.get('/api/agenda/:id', async (request) => {
     const { id } = agendaIdParamSchema.parse(request.params);
-    return agendaService.getById(id, request.profileId);
+    return agendaService.getById(id);
   });
 
   app.post('/api/agenda', async (request, reply) => {
@@ -41,30 +39,12 @@ export async function agendaController(app: FastifyInstance) {
 
   app.delete('/api/agenda/series/:recurrenceGroupId', async (request) => {
     const { recurrenceGroupId } = seriesParamSchema.parse(request.params);
-    return agendaService.deleteSeries(recurrenceGroupId, request.profileId);
+    return agendaService.deleteSeries(recurrenceGroupId);
   });
 
   app.delete('/api/agenda/:id', async (request, reply) => {
     const { id } = agendaIdParamSchema.parse(request.params);
-    await agendaService.deleteItem(id, request.profileId);
-    reply.status(204);
-  });
-
-  app.post('/api/agenda/:id/attachments', async (request) => {
-    const { id } = agendaIdParamSchema.parse(request.params);
-    const file = await request.file();
-    if (!file) {
-      throw new AppError('Selecione um arquivo PDF para enviar.', 400);
-    }
-    if (file.mimetype !== 'application/pdf') {
-      throw new AppError('Só é possível anexar arquivos PDF.', 400);
-    }
-    return agendaService.addAttachment(id, file, request.profileId);
-  });
-
-  app.delete('/api/agenda/attachments/:attachmentId', async (request, reply) => {
-    const { attachmentId } = attachmentIdParamSchema.parse(request.params);
-    await agendaService.removeAttachment(attachmentId);
+    await agendaService.deleteItem(id);
     reply.status(204);
   });
 }

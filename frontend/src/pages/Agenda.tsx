@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { endOfDay, endOfMonth, endOfWeek, endOfYear, startOfDay, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useProfile } from '../context/ProfileContext';
 import { AgendaCalendar, type CalendarView } from '../components/agenda/AgendaCalendar';
 import { YearView } from '../components/agenda/YearView';
@@ -30,12 +45,40 @@ function getRange(view: TopView, date: Date) {
   }
 }
 
+function shiftDate(view: TopView, date: Date, direction: 1 | -1): Date {
+  switch (view) {
+    case 'month':
+      return addMonths(date, direction);
+    case 'week':
+      return addWeeks(date, direction);
+    case 'day':
+      return addDays(date, direction);
+    case 'year':
+      return addYears(date, direction);
+  }
+}
+
+function periodLabel(view: TopView, date: Date): string {
+  switch (view) {
+    case 'month':
+      return format(date, 'MMMM yyyy', { locale: ptBR });
+    case 'week': {
+      const { from, to } = getRange('week', date);
+      return `${format(from, 'dd/MM')} – ${format(to, 'dd/MM/yyyy')}`;
+    }
+    case 'day':
+      return format(date, "EEEE, dd 'de' MMMM", { locale: ptBR });
+    case 'year':
+      return format(date, 'yyyy');
+  }
+}
+
 type ModalState = { mode: 'create'; defaultStart: Date } | { mode: 'edit'; item: AgendaItem } | null;
 
 export function Agenda() {
   const { currentProfile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [view, setView] = useState<TopView>('month');
+  const [view, setView] = useState<TopView>('week');
   const [date, setDate] = useState(new Date());
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [summary, setSummary] = useState({ total: 0, count: 0 });
@@ -82,8 +125,8 @@ export function Agenda() {
   if (!currentProfile) return null;
 
   return (
-    <section>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+    <section className="flex h-[calc(100vh-170px)] min-h-[500px] flex-col">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-slate-800">Agenda</h1>
         <button
           type="button"
@@ -95,19 +138,19 @@ export function Agenda() {
       </div>
 
       {googleNotice && (
-        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-lg text-blue-700">{googleNotice}</div>
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-lg text-blue-700">{googleNotice}</div>
       )}
 
       {currentProfile.role === 'admin' && <GoogleCalendarBanner />}
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 text-lg text-slate-700">
+      <div className="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-lg text-slate-700">
         Total em contas neste mês: <strong>R$ {summary.total.toFixed(2).replace('.', ',')}</strong>{' '}
         <span className="text-slate-400">
           ({summary.count} conta{summary.count === 1 ? '' : 's'})
         </span>
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-3 flex gap-2">
         {(Object.keys(VIEW_LABELS) as TopView[]).map((key) => (
           <button
             key={key}
@@ -122,39 +165,67 @@ export function Agenda() {
         ))}
       </div>
 
+      <div className="mb-3 flex flex-col items-center gap-1">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setDate((current) => shiftDate(view, current, -1))}
+            className="rounded-lg bg-white px-3 py-2 text-lg text-slate-700 hover:bg-slate-100"
+          >
+            ← Anterior
+          </button>
+          <button
+            type="button"
+            onClick={() => setDate(new Date())}
+            className="rounded-lg bg-white px-3 py-2 text-lg text-slate-700 hover:bg-slate-100"
+          >
+            Hoje
+          </button>
+          <button
+            type="button"
+            onClick={() => setDate((current) => shiftDate(view, current, 1))}
+            className="rounded-lg bg-white px-3 py-2 text-lg text-slate-700 hover:bg-slate-100"
+          >
+            Próximo →
+          </button>
+        </div>
+        <span className="text-xl font-medium capitalize text-slate-800">{periodLabel(view, date)}</span>
+      </div>
+
       {loading && <p className="mb-2 text-lg text-slate-500">Carregando…</p>}
 
-      {view === 'year' ? (
-        <YearView
-          year={date.getFullYear()}
-          items={items}
-          onSelectMonth={(monthIndex) => {
-            setDate(new Date(date.getFullYear(), monthIndex, 1));
-            setView('month');
-          }}
-          onSelectDay={(day) => {
-            setDate(day);
-            setView('day');
-          }}
-        />
-      ) : (
-        <AgendaCalendar
-          items={items}
-          view={view}
-          date={date}
-          onNavigate={setDate}
-          onViewChange={(nextView: CalendarView) => setView(nextView)}
-          onSelectEvent={(item) => setModalState({ mode: 'edit', item })}
-          onSelectSlot={(start) => openCreateModal(start)}
-        />
-      )}
+      <div className="min-h-0 flex-1">
+        {view === 'year' ? (
+          <YearView
+            year={date.getFullYear()}
+            items={items}
+            onSelectMonth={(monthIndex) => {
+              setDate(new Date(date.getFullYear(), monthIndex, 1));
+              setView('month');
+            }}
+            onSelectDay={(day) => {
+              setDate(day);
+              setView('day');
+            }}
+          />
+        ) : (
+          <AgendaCalendar
+            items={items}
+            view={view}
+            date={date}
+            onNavigate={setDate}
+            onViewChange={(nextView: CalendarView) => setView(nextView)}
+            onSelectEvent={(item) => setModalState({ mode: 'edit', item })}
+            onSelectSlot={(start) => openCreateModal(start)}
+          />
+        )}
+      </div>
 
       {modalState && (
         <AgendaItemModal
           mode={modalState.mode}
           item={modalState.mode === 'edit' ? modalState.item : undefined}
           defaultStart={modalState.mode === 'create' ? modalState.defaultStart : undefined}
-          currentProfile={currentProfile}
           onClose={() => setModalState(null)}
           onSaved={handleSaved}
         />

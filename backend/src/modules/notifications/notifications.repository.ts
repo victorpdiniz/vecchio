@@ -1,32 +1,32 @@
 import { prisma } from '../../lib/prisma.js';
 
 export const notificationsRepository = {
-  // Compromissos com lembrete configurado que ainda não aconteceram — o
-  // service filtra pelos que já entraram na janela de `reminderDaysBefore`.
-  findUpcomingWithReminder(today: Date) {
-    return prisma.agendaItem.findMany({
-      where: { reminderDaysBefore: { not: null }, startAt: { gte: today } },
+  // Lembretes cujo horário de disparo já chegou — o service ainda filtra os
+  // que já passaram do compromisso (ex: servidor ficou fora do ar) e os que
+  // já foram enviados em cada canal (via hasLog).
+  findDueReminders(now: Date) {
+    return prisma.agendaReminder.findMany({
+      where: { triggerAt: { lte: now } },
+      include: { agendaItem: true },
     });
   },
 
-  hasLog(agendaItemId: string, channel: string, sentTo: string) {
-    return prisma.notificationLog.findFirst({ where: { agendaItemId, channel, sentTo } });
+  hasLog(reminderId: string, channel: string, sentTo: string) {
+    return prisma.notificationLog.findFirst({ where: { reminderId, channel, sentTo } });
   },
 
-  createLog(data: { agendaItemId: string; channel: string; sentTo: string }) {
+  createLog(data: { reminderId: string; channel: string; sentTo: string }) {
     return prisma.notificationLog.create({ data });
   },
 
-  // Compromissos já avisados (log "inapp") que ainda não passaram — a
-  // privacidade segue a mesma regra da listagem da agenda: item privado só
-  // aparece para o próprio dono.
-  findPending(profileId: string | null, today: Date) {
+  // Compromissos já avisados (log "inapp") que ainda não aconteceram.
+  findPending(now: Date) {
     return prisma.agendaItem.findMany({
       where: {
-        startAt: { gte: today },
-        notifications: { some: { channel: 'inapp' } },
-        OR: [{ isPrivate: false }, { isPrivate: true, ownerProfileId: profileId ?? '__none__' }],
+        startAt: { gte: now },
+        reminders: { some: { notifications: { some: { channel: 'inapp' } } } },
       },
+      include: { bill: { include: { payerProfile: true } }, reminders: true },
       orderBy: { startAt: 'asc' },
     });
   },

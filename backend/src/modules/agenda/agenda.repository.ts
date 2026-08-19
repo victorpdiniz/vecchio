@@ -1,24 +1,20 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import type { ComputedReminder } from './reminders.js';
 
 const itemInclude = {
-  ownerProfile: true,
   bill: { include: { payerProfile: true } },
-  attachments: true,
+  reminders: true,
 } satisfies Prisma.AgendaItemInclude;
 
 export const agendaRepository = {
-  findManyInRange(from: Date, to: Date, profileId: string | null) {
+  findManyInRange(from: Date, to: Date) {
     return prisma.agendaItem.findMany({
       where: {
         // Compromissos que se sobrepõem ao intervalo, não só os que começam
         // nele — sem isso, um compromisso de vários dias some da view ao
         // navegar para um dia/semana que contém apenas seu meio ou fim.
-        AND: [
-          { startAt: { lte: to } },
-          { OR: [{ endAt: { gte: from } }, { endAt: null, startAt: { gte: from } }] },
-          { OR: [{ isPrivate: false }, { isPrivate: true, ownerProfileId: profileId ?? '__none__' }] },
-        ],
+        AND: [{ startAt: { lte: to } }, { OR: [{ endAt: { gte: from } }, { endAt: null, startAt: { gte: from } }] }],
       },
       include: itemInclude,
       orderBy: { startAt: 'asc' },
@@ -48,15 +44,14 @@ export const agendaRepository = {
     return prisma.agendaItem.delete({ where: { id } });
   },
 
-  createAttachment(data: Prisma.AttachmentUncheckedCreateInput) {
-    return prisma.attachment.create({ data });
-  },
-
-  findAttachment(id: string) {
-    return prisma.attachment.findUnique({ where: { id } });
-  },
-
-  deleteAttachment(id: string) {
-    return prisma.attachment.delete({ where: { id } });
+  // Substitui todos os lembretes de um compromisso pelos recém-computados —
+  // mais simples que fazer diff, e correto mesmo quando o `startAt` muda
+  // (o que recalcula o `triggerAt` de todos eles).
+  async replaceReminders(agendaItemId: string, reminders: ComputedReminder[]) {
+    await prisma.agendaReminder.deleteMany({ where: { agendaItemId } });
+    if (reminders.length === 0) return;
+    await prisma.agendaReminder.createMany({
+      data: reminders.map((reminder) => ({ ...reminder, agendaItemId })),
+    });
   },
 };

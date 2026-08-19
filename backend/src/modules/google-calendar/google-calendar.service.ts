@@ -1,4 +1,5 @@
 import { google, type calendar_v3 } from 'googleapis';
+import { addDays, format } from 'date-fns';
 import { createOAuthClient, isGoogleConfigured, GOOGLE_CALENDAR_SCOPES } from '../../lib/googleCalendarClient.js';
 import { googleCalendarRepository } from './google-calendar.repository.js';
 import { AppError } from '../../lib/errors.js';
@@ -11,8 +12,7 @@ const TIME_ZONE = 'America/Sao_Paulo';
 // agenda) para não criar uma dependência circular entre os dois módulos.
 export interface SyncableAgendaItem {
   title: string;
-  description: string | null;
-  location: string | null;
+  isAllDay: boolean;
   startAt: Date;
   endAt: Date | null;
   googleEventId: string | null;
@@ -48,11 +48,19 @@ async function getAuthorizedClient() {
 }
 
 function toGoogleEvent(item: SyncableAgendaItem): calendar_v3.Schema$Event {
+  if (item.isAllDay) {
+    const end = item.endAt ?? item.startAt;
+    return {
+      summary: item.title,
+      start: { date: format(item.startAt, 'yyyy-MM-dd') },
+      // O fim de eventos de dia inteiro é exclusivo na API do Google.
+      end: { date: format(addDays(end, 1), 'yyyy-MM-dd') },
+    };
+  }
+
   const end = item.endAt ?? new Date(item.startAt.getTime() + 60 * 60 * 1000);
   return {
     summary: item.title,
-    description: item.description ?? undefined,
-    location: item.location ?? undefined,
     start: { dateTime: item.startAt.toISOString(), timeZone: TIME_ZONE },
     end: { dateTime: end.toISOString(), timeZone: TIME_ZONE },
   };

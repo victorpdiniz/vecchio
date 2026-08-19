@@ -67,7 +67,6 @@ export const billsService = {
         category: 'conta',
         startAt: dueDate,
         billId: bill.id,
-        reminderDaysBefore: null,
       });
 
       const googleEventId = await googleCalendarService.createEvent(agendaItem);

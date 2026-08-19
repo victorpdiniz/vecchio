@@ -48,7 +48,7 @@ export function YearView({ year, items, onSelectMonth, onSelectDay }: YearViewPr
   }, [items]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid h-full grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
       {Array.from({ length: 12 }).map((_, monthIndex) => {
         const { first, days } = buildMonthGrid(year, monthIndex);
         return (

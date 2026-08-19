@@ -1,10 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  disconnectGoogleCalendar,
-  fetchGoogleAuthUrl,
-  fetchGoogleCalendarStatus,
-  type GoogleCalendarStatus,
-} from '../../api/googleCalendar';
+import { fetchGoogleAuthUrl, fetchGoogleCalendarStatus, type GoogleCalendarStatus } from '../../api/googleCalendar';
 
 export function GoogleCalendarBanner() {
   const [status, setStatus] = useState<GoogleCalendarStatus | null>(null);
@@ -26,16 +21,6 @@ export function GoogleCalendarBanner() {
     }
   }
 
-  async function handleDisconnect() {
-    setBusy(true);
-    try {
-      await disconnectGoogleCalendar();
-      setStatus((prev) => (prev ? { ...prev, connected: false } : prev));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!status) return null;
 
   if (!status.configured) {
@@ -47,20 +32,20 @@ export function GoogleCalendarBanner() {
     );
   }
 
+  // Conectado e funcionando não precisa de aviso nenhum — só mostramos algo
+  // aqui quando é preciso agir (conectar pela primeira vez ou reconectar).
+  if (status.connected) return null;
+
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-lg text-slate-700">
-        {status.connected
-          ? 'Conectado ao Google Agenda — os compromissos da família aparecem na sua agenda "Vecchio — Família".'
-          : 'Sincronize os compromissos da família com sua Google Agenda pessoal.'}
-      </p>
+      <p className="text-lg text-slate-700">Sincronize os compromissos da família com sua Google Agenda pessoal.</p>
       <button
         type="button"
-        onClick={status.connected ? handleDisconnect : handleConnect}
+        onClick={handleConnect}
         disabled={busy}
         className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
       >
-        {status.connected ? 'Desconectar' : 'Conectar Google Agenda'}
+        Conectar Google Agenda
       </button>
     </div>
   );

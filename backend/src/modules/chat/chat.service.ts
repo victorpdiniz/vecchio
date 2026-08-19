@@ -39,14 +39,14 @@ function getModel() {
     );
   }
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-  return genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  return genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 }
 
-async function buildAgendaContext(profileId: string | null) {
+async function buildAgendaContext() {
   const now = new Date();
   const from = subDays(now, CONTEXT_PAST_DAYS);
   const to = addDays(now, CONTEXT_FUTURE_DAYS);
-  const items = await agendaService.list(profileId, from, to);
+  const items = await agendaService.list(from, to);
 
   if (items.length === 0) {
     return 'Não há nenhum compromisso cadastrado na agenda nos próximos dois meses.';
@@ -55,8 +55,6 @@ async function buildAgendaContext(profileId: string | null) {
   return items
     .map((item) => {
       const when = format(item.startAt, "EEEE, dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-      const local = item.location ? ` em ${item.location}` : '';
-      const responsavel = item.ownerProfile?.name ?? 'toda a família';
       const bill = item.bill;
       const contaInfo = bill
         ? ` — conta de ${BILL_CATEGORY_LABELS[bill.category] ?? bill.category}, valor: R$ ${bill.amount
@@ -65,7 +63,7 @@ async function buildAgendaContext(profileId: string | null) {
             bill.payerProfile ? `, quem paga: ${bill.payerProfile.name}` : ''
           }`
         : '';
-      return `- ${item.title} (categoria: ${item.category}) — ${when}${local} — responsável: ${responsavel}${contaInfo}`;
+      return `- ${item.title} (categoria: ${item.category}) — ${when}${contaInfo}`;
     })
     .join('\n');
 }
@@ -93,7 +91,7 @@ async function buildMedicinesContext() {
 export const chatService = {
   async ask(profileId: string | null, message: string) {
     const model = getModel();
-    const agendaContext = await buildAgendaContext(profileId);
+    const agendaContext = await buildAgendaContext();
     const medicinesContext = await buildMedicinesContext();
     const today = format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 

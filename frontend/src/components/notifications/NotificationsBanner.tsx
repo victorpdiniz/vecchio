@@ -37,7 +37,6 @@ export function NotificationsBanner() {
         >
           <p>
             Lembrete: <strong>{item.title}</strong> {daysUntilLabel(item.startAt)}
-            {item.location ? ` — ${item.location}` : ''}
           </p>
           <button
             type="button"

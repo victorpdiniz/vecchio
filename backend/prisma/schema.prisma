@@ -23,7 +23,6 @@ model Profile {
   avatarIcon String
   createdAt  DateTime @default(now())
 
-  agendaItems              AgendaItem[]              @relation("AgendaOwner")
   medicines                Medicine[]
   bills                    Bill[]                    @relation("BillPayer")
   createdBills             Bill[]                    @relation("BillCreator")
@@ -33,31 +32,45 @@ model Profile {
 }
 
 model AgendaItem {
-  id                 String    @id @default(cuid())
-  title              String
-  description        String?
-  category           String    @default("outro") // "consulta" | "conta" | "remedio" | "outro"
-  location           String?
-  startAt            DateTime
-  endAt              DateTime?
-  ownerProfileId     String?
-  ownerProfile       Profile?  @relation("AgendaOwner", fields: [ownerProfileId], references: [id])
-  isPrivate          Boolean   @default(false)
-  reminderDaysBefore Int?      @default(3)
-  billId             String?   @unique
-  bill               Bill?     @relation(fields: [billId], references: [id])
+  id                String    @id @default(cuid())
+  title             String
+  category          String    @default("outro") // "consulta" | "exame" | "conta" | "remedio" | "viagem" | "outro"
+  isAllDay          Boolean   @default(false)
+  startAt           DateTime
+  endAt             DateTime?
+  billId            String?   @unique
+  bill              Bill?     @relation(fields: [billId], references: [id])
   // Recorrência: itens gerados a partir de um mesmo compromisso recorrente
   // compartilham recurrenceGroupId. recurrenceRule nulo = compromisso avulso.
-  recurrenceRule     String? // "diaria" | "semanal" | "mensal" | "anual"
-  recurrenceGroupId  String?
-  recurrenceEndDate  DateTime?
+  recurrenceRule    String? // "diaria" | "semanal" | "mensal" | "anual"
+  recurrenceGroupId String?
+  recurrenceEndDate DateTime?
   // Id do evento espelhado na agenda do Google (Admin), se sincronizado.
-  googleEventId      String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  googleEventId     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  reminders AgendaReminder[]
+}
+
+// Um compromisso pode ter vários lembretes (estilo Google Agenda). Guarda a
+// especificação original (kind + amount/unit OU daysBefore/atHour/atMinute)
+// além do triggerAt/label já computados, para o scan de notificações não
+// precisar recalcular nada e a edição poder repopular o formulário.
+model AgendaReminder {
+  id           String     @id @default(cuid())
+  agendaItemId String
+  agendaItem   AgendaItem @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
+  kind         String // "relative" (compromissos com hora) | "allday" (dia inteiro)
+  amount       Int? // relative: quantidade de `unit`
+  unit         String? // relative: "minutes" | "hours" | "days" | "weeks"
+  daysBefore   Int? // allday: quantos dias antes do dia do compromisso
+  atHour       Int? // allday: hora do aviso (0-23)
+  atMinute     Int? // allday: minuto do aviso (0-59)
+  triggerAt    DateTime // horário absoluto do aviso, recalculado a cada save
+  label        String // texto amigável, ex: "30 minutos antes" ou "1 dia antes às 09:00"
 
   notifications NotificationLog[]
-  attachments   Attachment[]
 }
 
 model Medicine {
@@ -103,20 +116,15 @@ model Bill {
   agendaItem  AgendaItem?
 }
 
-// Anexo pode pertencer a uma conta (Bill) OU a um compromisso da agenda
-// (AgendaItem) — exatamente um dos dois deve estar preenchido, validado na
-// camada de serviço já que o SQLite não impõe essa regra no schema.
 model Attachment {
-  id           String      @id @default(cuid())
-  billId       String?
-  bill         Bill?       @relation(fields: [billId], references: [id], onDelete: Cascade)
-  agendaItemId String?
-  agendaItem   AgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  billId       String
+  bill         Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
   filename     String
   storagePath  String
   uploadedById String
-  uploadedBy   Profile     @relation(fields: [uploadedById], references: [id])
-  uploadedAt   DateTime    @default(now())
+  uploadedBy   Profile  @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
 }
 
 model Password {
@@ -131,12 +139,12 @@ model Password {
 }
 
 model NotificationLog {
-  id           String     @id @default(cuid())
-  agendaItemId String
-  agendaItem   AgendaItem @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
-  channel      String // "inapp" | "email"
-  sentTo       String
-  sentAt       DateTime   @default(now())
+  id         String         @id @default(cuid())
+  reminderId String
+  reminder   AgendaReminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  channel    String // "inapp" | "email"
+  sentTo     String
+  sentAt     DateTime       @default(now())
 }
 
 model ChatMessage {
