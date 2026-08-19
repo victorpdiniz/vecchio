@@ -46,7 +46,7 @@ export const agendaService = {
     const actor = await requireActor(actorProfileId);
 
     const occurrenceDates = input.recurrence
-      ? computeOccurrenceDates(input.startAt, input.recurrence.rule, input.recurrence.endDate ?? null)
+      ? computeOccurrenceDates(input.startAt, input.recurrence.rule, null)
       : [input.startAt];
 
     const durationMs = input.endAt ? input.endAt.getTime() - input.startAt.getTime() : null;
@@ -79,7 +79,6 @@ export const agendaService = {
         billId,
         recurrenceRule: input.recurrence?.rule ?? null,
         recurrenceGroupId,
-        recurrenceEndDate: input.recurrence?.endDate ?? null,
       });
 
       await agendaRepository.replaceReminders(

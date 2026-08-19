@@ -44,7 +44,6 @@ model AgendaItem {
   // compartilham recurrenceGroupId. recurrenceRule nulo = compromisso avulso.
   recurrenceRule    String? // "diaria" | "semanal" | "mensal" | "anual"
   recurrenceGroupId String?
-  recurrenceEndDate DateTime?
   // Id do evento espelhado na agenda do Google (Admin), se sincronizado.
   googleEventId     String?
   createdAt         DateTime  @default(now())

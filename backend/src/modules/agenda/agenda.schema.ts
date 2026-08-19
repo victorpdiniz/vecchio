@@ -28,7 +28,6 @@ const baseAgendaItemFields = {
 
 const recurrenceInputSchema = z.object({
   rule: z.enum(RECURRENCE_RULES),
-  endDate: z.coerce.date().optional(),
 });
 
 function validateCommonAgendaFields(
@@ -71,16 +70,7 @@ function validateCommonAgendaFields(
 
 export const createAgendaItemSchema = z
   .object({ ...baseAgendaItemFields, recurrence: recurrenceInputSchema.optional() })
-  .superRefine((data, ctx) => {
-    validateCommonAgendaFields(data, ctx);
-    if (data.recurrence?.endDate && data.recurrence.endDate < data.startAt) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['recurrence', 'endDate'],
-        message: 'A data final da recorrência não pode ser antes do início.',
-      });
-    }
-  });
+  .superRefine(validateCommonAgendaFields);
 
 export const updateAgendaItemSchema = z.object(baseAgendaItemFields).superRefine(validateCommonAgendaFields);
 

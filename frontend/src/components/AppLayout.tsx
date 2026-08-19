@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { NotificationsBanner } from './notifications/NotificationsBanner';
+import { UpdateControl } from './UpdateControl';
 
 const NAV_ITEMS = [
   { to: '/inicio', label: 'Início' },
@@ -50,6 +51,7 @@ export function AppLayout() {
           ))}
         </nav>
         <div className="flex gap-2">
+          <UpdateControl />
           <button
             type="button"
             onClick={toggleSimpleMode}

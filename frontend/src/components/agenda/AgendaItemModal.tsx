@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { format } from 'date-fns';
 import { getErrorMessage } from '../../api/client';
-import { DateTimeField } from '../DateTimeField';
+import { MaskedDateTimeField } from './MaskedDateTimeField';
 import { ReminderPicker } from './ReminderPicker';
 import {
   createAgendaItem,
@@ -90,7 +90,6 @@ export function AgendaItemModal({ mode, item, defaultStart, onClose, onSaved }: 
     item ? item.reminders.map(toReminderInput) : defaultReminders(false),
   );
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | ''>('');
-  const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -123,10 +122,7 @@ export function AgendaItemModal({ mode, item, defaultStart, onClose, onSaved }: 
     };
 
     if (mode === 'create' && recurrenceRule) {
-      payload.recurrence = {
-        rule: recurrenceRule,
-        endDate: recurrenceEndDate ? new Date(recurrenceEndDate).toISOString() : undefined,
-      };
+      payload.recurrence = { rule: recurrenceRule };
     }
 
     setSaving(true);
@@ -233,8 +229,8 @@ export function AgendaItemModal({ mode, item, defaultStart, onClose, onSaved }: 
           </label>
 
           <div className="flex flex-col gap-4">
-            <DateTimeField label="Início" value={startAt} onChange={setStartAt} required showTime={!isAllDay} />
-            <DateTimeField label="Fim (opcional)" value={endAt} onChange={setEndAt} showTime={!isAllDay} />
+            <MaskedDateTimeField label="Início" value={startAt} onChange={setStartAt} required showTime={!isAllDay} />
+            <MaskedDateTimeField label="Fim (opcional)" value={endAt} onChange={setEndAt} showTime={!isAllDay} />
           </div>
 
           <ReminderPicker isAllDay={isAllDay} reminders={reminders} onChange={setReminders} />
@@ -256,17 +252,6 @@ export function AgendaItemModal({ mode, item, defaultStart, onClose, onSaved }: 
                   ))}
                 </select>
               </label>
-              {recurrenceRule && (
-                <label className="mt-3 flex flex-col gap-1 text-lg text-slate-700">
-                  Repetir até (opcional, no máximo 1 ano)
-                  <input
-                    type="date"
-                    value={recurrenceEndDate}
-                    onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-                  />
-                </label>
-              )}
             </div>
           )}
 

@@ -69,7 +69,6 @@ export interface AgendaItem {
   bill: Bill | null;
   recurrenceRule: RecurrenceRule | null;
   recurrenceGroupId: string | null;
-  recurrenceEndDate: string | null;
   googleEventId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -84,7 +83,7 @@ export interface AgendaItemInput {
   endAt?: string;
   amount?: number;
   reminders: ReminderInput[];
-  recurrence?: { rule: RecurrenceRule; endDate?: string };
+  recurrence?: { rule: RecurrenceRule };
 }
 
 export async function fetchAgendaItems(from: Date, to: Date): Promise<AgendaItem[]> {

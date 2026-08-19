@@ -19,6 +19,12 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
   GOOGLE_REDIRECT_URI: z.string().optional().default('http://localhost:3333/api/google-calendar/callback'),
   FRONTEND_URL: z.string().optional().default('http://localhost:5173'),
+  // Branch que o botão de autoatualização compara/segue, e caminho do
+  // diretório .git que ele enxerga (ver backend/src/modules/system) — no
+  // container é montado em /repo.git pelo docker-compose.yml; fora do
+  // Docker (dev local), pode apontar para o .git real do repositório.
+  UPDATE_BRANCH: z.string().optional().default('dev'),
+  GIT_DIR: z.string().optional().default('/repo.git'),
 });
 
 export const env = envSchema.parse(process.env);
