@@ -85,7 +85,9 @@ Windows não tem `crontab` — o script continua sendo um script bash (ele
 também dá `docker compose restart`, então precisa rodar de algum shell que
 enxergue o `docker` instalado), então a forma mais simples de rodar é via
 **Git Bash** (já que é o que você usa pra `docker compose`) agendado pelo
-**Agendador de Tarefas do Windows**, que faz o papel do cron.
+**Agendador de Tarefas do Windows**, que faz o papel do cron. "MINGW64" é só
+o nome do ambiente que o prompt do Git Bash mostra (`MSYSTEM=MINGW64`) — é o
+Git Bash padrão, nada diferente do que já está descrito aqui.
 
 1. Confirme o caminho do `bash.exe` do Git Bash — normalmente
    `C:\Program Files\Git\bin\bash.exe`. Pra checar, abra o Git Bash e rode:
@@ -97,10 +99,14 @@ enxergue o `docker` instalado), então a forma mais simples de rodar é via
 2. Abra o **PowerShell** (não precisa ser como administrador, a não ser que
    sua conta exija privilégio elevado pra rodar `docker`) e registre a
    tarefa, ajustando os dois caminhos entre aspas pro seu usuário e onde o
-   repositório está clonado:
+   repositório está clonado. O `--login` é importante: sem ele, o Agendador
+   de Tarefas chama o `bash.exe` "cru", sem passar pelo `/etc/profile` que
+   normalmente monta o ambiente MINGW64 (inclusive o `PATH` com as pastas
+   que o Docker Desktop registrou) — com `--login`, o script roda num
+   ambiente igual ao que você já usa quando abre o Git Bash manualmente:
 
    ```powershell
-   $action = New-ScheduledTaskAction -Execute "C:\Program Files\Git\bin\bash.exe" -Argument '"C:\Users\SEU_USUARIO\vecchio\scripts\vecchio-update-watcher.sh"'
+   $action = New-ScheduledTaskAction -Execute "C:\Program Files\Git\bin\bash.exe" -Argument '--login "C:\Users\SEU_USUARIO\vecchio\scripts\vecchio-update-watcher.sh"'
    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration ([TimeSpan]::MaxValue)
    Register-ScheduledTask -TaskName "VecchioUpdateWatcher" -Action $action -Trigger $trigger -Description "Watcher de autoatualizacao do Vecchio, roda a cada minuto"
    ```
@@ -156,5 +162,5 @@ argumento do bash, já que `New-ScheduledTaskAction` não tem um jeito
 separado de setar variáveis de ambiente:
 
 ```powershell
-$action = New-ScheduledTaskAction -Execute "C:\Program Files\Git\bin\bash.exe" -Argument '-c "VECCHIO_UPDATE_BRANCH=minha-branch \"/c/Users/SEU_USUARIO/vecchio/scripts/vecchio-update-watcher.sh\""'
+$action = New-ScheduledTaskAction -Execute "C:\Program Files\Git\bin\bash.exe" -Argument '--login -c "VECCHIO_UPDATE_BRANCH=minha-branch \"/c/Users/SEU_USUARIO/vecchio/scripts/vecchio-update-watcher.sh\""'
 ```
