@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
+import { TodayMedicinesWidget } from '../components/medicines/TodayMedicinesWidget';
 
 const CARDS = [
   { to: '/agenda', title: 'Agenda', description: 'Consultas, compromissos e a agenda de toda a família.' },
@@ -20,7 +21,11 @@ export function Dashboard() {
       </h1>
       <p className="mt-2 text-xl text-slate-600">O que você quer fazer?</p>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6">
+        <TodayMedicinesWidget />
+      </div>
+
+      <div className="mt-2 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {CARDS.map((card) => (
           <Link
             key={card.to}

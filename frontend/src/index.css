@@ -21,3 +21,33 @@ body {
   outline: 3px solid #2563eb;
   outline-offset: 2px;
 }
+
+/* Modo simples (fase de acessibilidade): fonte ainda maior — como as
+   classes do Tailwind usam rem, escalar a raiz aumenta tudo
+   proporcionalmente — e contraste mais forte nos tons de cinza claro
+   usados pra texto secundário/bordas, que ficam fracos demais pra quem
+   tem baixa visão. */
+html.modo-simples {
+  font-size: 24px;
+}
+
+html.modo-simples .text-slate-400,
+html.modo-simples .text-slate-500 {
+  color: #1e293b;
+}
+
+html.modo-simples .text-slate-600,
+html.modo-simples .text-slate-700 {
+  color: #0f172a;
+}
+
+html.modo-simples .border-slate-200,
+html.modo-simples .border-slate-300 {
+  border-color: #334155;
+  border-width: 2px;
+}
+
+html.modo-simples :focus-visible {
+  outline-width: 4px;
+  outline-offset: 3px;
+}

@@ -1,25 +1,27 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { format } from 'date-fns';
 import { getErrorMessage } from '../../api/client';
+import { DateTimeField } from '../DateTimeField';
+import { ReminderPicker } from './ReminderPicker';
 import {
   createAgendaItem,
   deleteAgendaItem,
   deleteAgendaSeries,
-  deleteAttachment,
-  fetchAgendaItem,
   updateAgendaItem,
-  uploadAttachment,
   type AgendaCategory,
   type AgendaItem,
   type AgendaItemInput,
+  type AgendaReminder,
+  type ReminderInput,
   type RecurrenceRule,
 } from '../../api/agenda';
-import type { Profile } from '../../api/profiles';
 
 const CATEGORY_LABELS: Record<AgendaCategory, string> = {
   consulta: 'Consulta',
+  exame: 'Exame',
   conta: 'Conta',
   remedio: 'Remédio',
+  viagem: 'Viagem',
   outro: 'Outro',
 };
 
@@ -35,49 +37,70 @@ function toDateTimeLocal(iso: string | null): string {
   return format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3333';
+function toDateOnlyLocal(iso: string | null): string {
+  if (!iso) return '';
+  return format(new Date(iso), 'yyyy-MM-dd');
+}
+
+// `value` é sempre um horário local (vindo do DateTimeField, nunca de um
+// fuso alheio) no formato "yyyy-MM-dd" ou "yyyy-MM-ddTHH:mm" — monta a Date
+// campo a campo em vez de usar `new Date(value)` porque strings só-data são
+// interpretadas como UTC pelo JS, o que jogaria compromissos de dia inteiro
+// para o dia anterior em fusos negativos como o do Brasil.
+function parseLocalDateTime(value: string): Date {
+  const [datePart, timePart] = value.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  if (timePart) {
+    const [hour, minute] = timePart.split(':').map(Number);
+    return new Date(year, month - 1, day, hour, minute);
+  }
+  return new Date(year, month - 1, day);
+}
+
+function defaultReminders(isAllDay: boolean): ReminderInput[] {
+  return [isAllDay ? { kind: 'allday', daysBefore: 1, atHour: 9, atMinute: 0 } : { kind: 'relative', amount: 30, unit: 'minutes' }];
+}
+
+function toReminderInput(reminder: AgendaReminder): ReminderInput {
+  return reminder.kind === 'relative'
+    ? { kind: 'relative', amount: reminder.amount!, unit: reminder.unit! }
+    : { kind: 'allday', daysBefore: reminder.daysBefore!, atHour: reminder.atHour!, atMinute: reminder.atMinute! };
+}
 
 interface AgendaItemModalProps {
   mode: 'create' | 'edit';
   item?: AgendaItem;
   defaultStart?: Date;
-  currentProfile: Profile;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onClose, onSaved }: AgendaItemModalProps) {
-  const [currentItem, setCurrentItem] = useState<AgendaItem | undefined>(item);
-
+export function AgendaItemModal({ mode, item, defaultStart, onClose, onSaved }: AgendaItemModalProps) {
   const [title, setTitle] = useState(item?.title ?? '');
-  const [description, setDescription] = useState(item?.description ?? '');
   const [category, setCategory] = useState<AgendaCategory>(item?.category ?? 'outro');
-  const [location, setLocation] = useState(item?.location ?? '');
-  const [startAt, setStartAt] = useState(toDateTimeLocal(item?.startAt ?? defaultStart?.toISOString() ?? null));
-  const [endAt, setEndAt] = useState(toDateTimeLocal(item?.endAt ?? null));
-  const [isPrivate, setIsPrivate] = useState(item?.isPrivate ?? false);
-  const [reminderDaysBefore, setReminderDaysBefore] = useState(
-    item?.reminderDaysBefore != null ? String(item.reminderDaysBefore) : '',
+  const [isAllDay, setIsAllDay] = useState(item?.isAllDay ?? false);
+  const [startAt, setStartAt] = useState(
+    item?.isAllDay
+      ? toDateOnlyLocal(item.startAt)
+      : toDateTimeLocal(item?.startAt ?? defaultStart?.toISOString() ?? null),
   );
+  const [endAt, setEndAt] = useState(item?.isAllDay ? toDateOnlyLocal(item.endAt) : toDateTimeLocal(item?.endAt ?? null));
   const [amount, setAmount] = useState(item?.bill ? String(item.bill.amount) : '');
+  const [reminders, setReminders] = useState<ReminderInput[]>(
+    item ? item.reminders.map(toReminderInput) : defaultReminders(false),
+  );
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | ''>('');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isAdmin = currentProfile.role === 'admin';
-
-  async function refreshItem() {
-    if (!currentItem) return;
-    try {
-      const fresh = await fetchAgendaItem(currentItem.id);
-      setCurrentItem(fresh);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
+  function handleAllDayChange(next: boolean) {
+    setIsAllDay(next);
+    setStartAt((current) => (current ? current.slice(0, 10) : current));
+    setEndAt((current) => (current ? current.slice(0, 10) : current));
+    setReminders(defaultReminders(next));
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -85,20 +108,18 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
     setError(null);
 
     if (!startAt) {
-      setError('Informe a data e hora de início.');
+      setError('Informe a data de início.');
       return;
     }
 
     const payload: AgendaItemInput = {
       title,
-      description: description || undefined,
       category,
-      location: location || undefined,
-      startAt: new Date(startAt).toISOString(),
-      endAt: endAt ? new Date(endAt).toISOString() : undefined,
-      isPrivate,
-      reminderDaysBefore: reminderDaysBefore !== '' ? Number(reminderDaysBefore) : undefined,
+      isAllDay,
+      startAt: parseLocalDateTime(startAt).toISOString(),
+      endAt: endAt ? parseLocalDateTime(endAt).toISOString() : undefined,
       amount: category === 'conta' ? Number(amount) : undefined,
+      reminders,
     };
 
     if (mode === 'create' && recurrenceRule) {
@@ -112,8 +133,8 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
     try {
       if (mode === 'create') {
         await createAgendaItem(payload);
-      } else if (currentItem) {
-        await updateAgendaItem(currentItem.id, payload);
+      } else if (item) {
+        await updateAgendaItem(item.id, payload);
       }
       onSaved();
     } catch (err) {
@@ -124,11 +145,11 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
   }
 
   async function handleDelete() {
-    if (!currentItem) return;
+    if (!item) return;
     setDeleting(true);
     setError(null);
     try {
-      await deleteAgendaItem(currentItem.id);
+      await deleteAgendaItem(item.id);
       onSaved();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -137,45 +158,15 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
   }
 
   async function handleDeleteSeries() {
-    if (!currentItem?.recurrenceGroupId) return;
+    if (!item?.recurrenceGroupId) return;
     setDeleting(true);
     setError(null);
     try {
-      await deleteAgendaSeries(currentItem.recurrenceGroupId);
+      await deleteAgendaSeries(item.recurrenceGroupId);
       onSaved();
     } catch (err) {
       setError(getErrorMessage(err));
       setDeleting(false);
-    }
-  }
-
-  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || !currentItem) return;
-    if (file.type !== 'application/pdf') {
-      setError('Só é possível anexar arquivos PDF.');
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    try {
-      await uploadAttachment(currentItem.id, file);
-      await refreshItem();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleRemoveAttachment(attachmentId: string) {
-    setError(null);
-    try {
-      await deleteAttachment(attachmentId);
-      await refreshItem();
-    } catch (err) {
-      setError(getErrorMessage(err));
     }
   }
 
@@ -191,9 +182,7 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-lg text-red-700">{error}</div>
-        )}
+        {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-lg text-red-700">{error}</div>}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-lg text-slate-700">
@@ -238,67 +227,17 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
             )}
           </div>
 
-          <label className="flex flex-col gap-1 text-lg text-slate-700">
-            Local
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-              placeholder="Ex: Clínica São Lucas"
-            />
+          <label className="flex items-center gap-2 text-lg text-slate-700">
+            <input type="checkbox" checked={isAllDay} onChange={(e) => handleAllDayChange(e.target.checked)} />
+            Dia inteiro
           </label>
 
-          <div className="grid grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1 text-lg text-slate-700">
-              Início
-              <input
-                required
-                type="datetime-local"
-                value={startAt}
-                onChange={(e) => setStartAt(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-lg text-slate-700">
-              Fim (opcional)
-              <input
-                type="datetime-local"
-                value={endAt}
-                onChange={(e) => setEndAt(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-              />
-            </label>
+          <div className="flex flex-col gap-4">
+            <DateTimeField label="Início" value={startAt} onChange={setStartAt} required showTime={!isAllDay} />
+            <DateTimeField label="Fim (opcional)" value={endAt} onChange={setEndAt} showTime={!isAllDay} />
           </div>
 
-          <label className="flex flex-col gap-1 text-lg text-slate-700">
-            Descrição
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-lg text-slate-700">
-            Avisar quantos dias antes
-            <input
-              type="number"
-              min="0"
-              max="30"
-              value={reminderDaysBefore}
-              onChange={(e) => setReminderDaysBefore(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-lg"
-              placeholder={category === 'consulta' ? '3 (padrão)' : 'sem aviso'}
-            />
-          </label>
-
-          {isAdmin && (
-            <label className="flex items-center gap-2 text-lg text-slate-700">
-              <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
-              Só aparece pra mim (agenda privada do Admin)
-            </label>
-          )}
+          <ReminderPicker isAllDay={isAllDay} reminders={reminders} onChange={setReminders} />
 
           {mode === 'create' && (
             <div className="rounded-lg border border-slate-200 p-3">
@@ -331,46 +270,6 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
             </div>
           )}
 
-          {mode === 'edit' && currentItem && (
-            <div className="rounded-lg border border-slate-200 p-3">
-              <p className="mb-2 text-lg font-medium text-slate-700">Documentos anexados</p>
-              <ul className="mb-3 flex flex-col gap-2">
-                {currentItem.attachments.length === 0 && (
-                  <li className="text-base text-slate-400">Nenhum documento anexado.</li>
-                )}
-                {currentItem.attachments.map((attachment) => (
-                  <li key={attachment.id} className="flex items-center justify-between gap-2 text-base">
-                    <a
-                      href={`${API_BASE}/uploads/${attachment.storagePath}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="truncate text-blue-600 hover:underline"
-                    >
-                      {attachment.filename}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveAttachment(attachment.id)}
-                      className="text-red-500 hover:underline"
-                    >
-                      Remover
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <label className="text-base text-slate-600">
-                Anexar PDF (ex: recomendações do exame)
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleUpload}
-                  disabled={uploading}
-                  className="mt-1 block text-base"
-                />
-              </label>
-            </div>
-          )}
-
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-2">
               {mode === 'edit' && (
@@ -383,7 +282,7 @@ export function AgendaItemModal({ mode, item, defaultStart, currentProfile, onCl
                   >
                     Excluir
                   </button>
-                  {currentItem?.recurrenceGroupId && (
+                  {item?.recurrenceGroupId && (
                     <button
                       type="button"
                       onClick={handleDeleteSeries}

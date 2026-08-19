@@ -4,13 +4,16 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import { App } from './App.tsx'
 import { ProfileProvider } from './context/ProfileContext.tsx'
+import { AccessibilityProvider } from './context/AccessibilityContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <ProfileProvider>
-        <App />
-      </ProfileProvider>
+      <AccessibilityProvider>
+        <ProfileProvider>
+          <App />
+        </ProfileProvider>
+      </AccessibilityProvider>
     </BrowserRouter>
   </StrictMode>,
 )

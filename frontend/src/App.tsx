@@ -4,10 +4,16 @@ import { RequireProfile } from './components/RequireProfile';
 import { ProfilePicker } from './pages/ProfilePicker';
 import { Dashboard } from './pages/Dashboard';
 import { Agenda } from './pages/Agenda';
+import { Bills } from './pages/Bills';
+import { Medicines } from './pages/Medicines';
+import { Passwords } from './pages/Passwords';
 import { Chat } from './pages/Chat';
-import { PlaceholderPage } from './pages/PlaceholderPage';
+import { UsbTransfer } from './pages/UsbTransfer';
+import { useArrowKeyNavigation } from './hooks/useArrowKeyNavigation';
 
 export function App() {
+  useArrowKeyNavigation();
+
   return (
     <Routes>
       <Route path="/" element={<ProfilePicker />} />
@@ -21,23 +27,11 @@ export function App() {
       >
         <Route path="/inicio" element={<Dashboard />} />
         <Route path="/agenda" element={<Agenda />} />
-        <Route
-          path="/contas"
-          element={<PlaceholderPage title="Contas" description="Contas do mês e do ano." />}
-        />
-        <Route
-          path="/remedios"
-          element={<PlaceholderPage title="Remédios" description="Horários e doses dos remédios." />}
-        />
-        <Route
-          path="/senhas"
-          element={<PlaceholderPage title="Senhas" description="Lista de senhas guardadas." />}
-        />
+        <Route path="/contas" element={<Bills />} />
+        <Route path="/remedios" element={<Medicines />} />
+        <Route path="/senhas" element={<Passwords />} />
         <Route path="/chat" element={<Chat />} />
-        <Route
-          path="/pendrive"
-          element={<PlaceholderPage title="Pendrive" description="Copiar pastas para um pendrive." />}
-        />
+        <Route path="/pendrive" element={<UsbTransfer />} />
       </Route>
     </Routes>
   );

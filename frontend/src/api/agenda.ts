@@ -1,8 +1,9 @@
 import { api } from './client';
 import type { Profile } from './profiles';
 
-export type AgendaCategory = 'consulta' | 'conta' | 'remedio' | 'outro';
+export type AgendaCategory = 'consulta' | 'exame' | 'conta' | 'remedio' | 'viagem' | 'outro';
 export type RecurrenceRule = 'diaria' | 'semanal' | 'mensal' | 'anual';
+export type ReminderUnit = 'minutes' | 'hours' | 'days' | 'weeks';
 
 export interface Bill {
   id: string;
@@ -13,31 +14,57 @@ export interface Bill {
   isRecurring: boolean;
   recurrenceRule: string | null;
   status: 'pendente' | 'pago';
+  payerProfileId: string | null;
+  payerProfile: Profile | null;
   paidAt: string | null;
 }
 
 export interface Attachment {
   id: string;
-  billId: string | null;
-  agendaItemId: string | null;
+  billId: string;
   filename: string;
   storagePath: string;
   uploadedById: string;
   uploadedAt: string;
 }
 
+// Espelha os dois "formatos" de lembrete do backend (ver reminders.ts):
+// "relative" para compromissos com hora ("30 minutos antes"), "allday" para
+// compromissos de dia inteiro ("1 dia antes, às 09:00").
+export interface RelativeReminderInput {
+  kind: 'relative';
+  amount: number;
+  unit: ReminderUnit;
+}
+
+export interface AllDayReminderInput {
+  kind: 'allday';
+  daysBefore: number;
+  atHour: number;
+  atMinute: number;
+}
+
+export type ReminderInput = RelativeReminderInput | AllDayReminderInput;
+
+export interface AgendaReminder {
+  id: string;
+  kind: 'relative' | 'allday';
+  amount: number | null;
+  unit: ReminderUnit | null;
+  daysBefore: number | null;
+  atHour: number | null;
+  atMinute: number | null;
+  triggerAt: string;
+  label: string;
+}
+
 export interface AgendaItem {
   id: string;
   title: string;
-  description: string | null;
   category: AgendaCategory;
-  location: string | null;
+  isAllDay: boolean;
   startAt: string;
   endAt: string | null;
-  ownerProfileId: string | null;
-  ownerProfile: Profile | null;
-  isPrivate: boolean;
-  reminderDaysBefore: number | null;
   billId: string | null;
   bill: Bill | null;
   recurrenceRule: RecurrenceRule | null;
@@ -46,19 +73,17 @@ export interface AgendaItem {
   googleEventId: string | null;
   createdAt: string;
   updatedAt: string;
-  attachments: Attachment[];
+  reminders: AgendaReminder[];
 }
 
 export interface AgendaItemInput {
   title: string;
-  description?: string;
   category: AgendaCategory;
-  location?: string;
+  isAllDay: boolean;
   startAt: string;
   endAt?: string;
-  isPrivate?: boolean;
-  reminderDaysBefore?: number;
   amount?: number;
+  reminders: ReminderInput[];
   recurrence?: { rule: RecurrenceRule; endDate?: string };
 }
 
@@ -98,15 +123,4 @@ export async function deleteAgendaItem(id: string): Promise<void> {
 export async function deleteAgendaSeries(recurrenceGroupId: string): Promise<{ deleted: number }> {
   const { data } = await api.delete<{ deleted: number }>(`/api/agenda/series/${recurrenceGroupId}`);
   return data;
-}
-
-export async function uploadAttachment(agendaItemId: string, file: File): Promise<Attachment> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const { data } = await api.post<Attachment>(`/api/agenda/${agendaItemId}/attachments`, formData);
-  return data;
-}
-
-export async function deleteAttachment(attachmentId: string): Promise<void> {
-  await api.delete(`/api/agenda/attachments/${attachmentId}`);
 }

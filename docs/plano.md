@@ -171,7 +171,8 @@ vecchio/
   docker-compose.yml
   docs/
     plano.md            (este arquivo)
-    remote-access-setup.md   (a escrever na fase 9)
+    google-calendar-setup.md
+    remote-access-setup.md
   README.md
 ```
 
@@ -208,26 +209,85 @@ Production/real deployment is explicitly out of Docker per the user's request
       `docs/google-calendar-setup.md`). Went further than originally
       planned — pulled in the start of Bills, Attachments and Chat too
       (see notes below).
-- [ ] **2. Notifications** — cron scan, in-app banner, email via nodemailer,
-      tied to agenda reminders. (Compromissos da categoria "consulta" já
-      têm `reminderDaysBefore`, mas o envio ainda não existe.)
-- [~] **3. Bills/Contas module** — só o alicerce: `bills.repository.ts`
-      (create/update/sum) usado pelo módulo de Agenda para registrar o
-      valor de compromissos da categoria "conta" e somar o total gasto.
-      Ainda faltam: controller/service dedicados, tela de listagem,
-      marcar como pago, categorias/relatórios.
-- [~] **4. PDF upload & simplified viewer** — implementado para
-      compromissos da agenda (`Attachment.agendaItemId`), não para Bills
-      diretamente ainda (o modelo já suporta os dois).
-- [ ] **5. Password vault** — encrypted CRUD + list/search UI.
-- [ ] **6. Medicines** — CRUD + daily schedule + "hoje" dashboard widget.
-- [~] **7. Chat assistant** — Gemini integrado e funcionando, mas o
-      contexto hoje é só a agenda (compromissos dos próximos ~60 dias).
-      Quando os módulos de Contas/Remédios existirem, o contexto deve
-      incluir esses dados também.
-- [ ] **8. USB folder transfer** — drive detection + copy flow.
-- [ ] **9. Accessibility pass** — "modo simples" theme, full keyboard nav;
-      write the remote-desktop setup runbook (`docs/remote-access-setup.md`).
+- [x] **2. Notifications** — `node-cron` roda um scan diário (e uma vez na
+      subida do processo) que verifica compromissos cujo `reminderDaysBefore`
+      já foi atingido, registra um `NotificationLog` por canal para evitar
+      reenvio, mostra banner in-app (visível em qualquer tela, some ao
+      recarregar) e envia email via nodemailer a cada perfil da família
+      (compromissos privados do admin notificam só o admin). SMTP não
+      configurado apenas loga em vez de falhar.
+- [x] **3. Bills/Contas module** — `bills.controller.ts`/`bills.service.ts`
+      dedicados: CRUD completo, categorias próprias de conta (`luz`,
+      `agua`, `internet`, `telefone`, `aluguel`, `saude`, `mercado`,
+      `outro` — ver `BILL_CATEGORIES` em `enums.ts`), templates
+      recorrentes (reaproveita `computeOccurrenceDates`, mesma regra de 1
+      ano/200 ocorrências da Agenda), marcar como pago/pendente, resumo
+      mensal/anual com total e detalhamento por categoria. Toda conta
+      criada aqui gera um compromisso espelhado na agenda (categoria
+      "conta", compartilhado) e sincroniza com o Google Agenda — simétrico
+      ao que a Agenda já fazia ao criar uma "conta" por lá; editar/excluir
+      a conta atualiza/remove o compromisso vinculado também. Tela
+      `frontend/src/pages/Bills.tsx` (filtros por mês/status/categoria,
+      cartão de resumo) + `BillModal.tsx` substituem o placeholder de
+      `/contas`.
+- [x] **4. PDF upload & simplified viewer** — agora também para Bills
+      diretamente (`POST/DELETE /api/bills/:id/attachments`, mesmo padrão
+      de anexos da Agenda), além dos compromissos da agenda já existentes.
+- [x] **5. Password vault** — `passwords.controller.ts`/`.service.ts`
+      dedicados; CRUD completo (só o admin cria/edita/exclui, os outros 3
+      perfis só veem e copiam — reforçado em `passwordsService`, não só na
+      UI); cifra AES-256-GCM em `lib/crypto.ts` (chave derivada via
+      SHA-256 de `PASSWORD_ENCRYPTION_KEY`, formato armazenado
+      `iv+authTag+ciphertext` em base64 num único campo); busca por nome
+      do site (case-insensitive, filtrada em memória — lista pequena,
+      SQLite não tem `mode: 'insensitive'`). Tela `Passwords.tsx` com
+      mostrar/ocultar e copiar usuário/senha.
+- [x] **6. Medicines** — `medicines.controller.ts`/`.service.ts` dedicados;
+      CRUD de remédio + horários (`MedicineSchedule`, um remédio pode ter
+      vários horários, cada um com seus próprios dias da semana —
+      substituídos por completo a cada edição via `replaceSchedules`, mais
+      simples que diff individual). `daysOfWeek` trafega como array de
+      números (0-6) na API; só o banco guarda como CSV (SQLite não tem
+      array nativo no Prisma). Widget "Remédios de hoje" no Dashboard
+      (`GET /api/medicines/today`) lista as doses do dia da semana atual
+      em ordem de horário, com indicação visual do que já passou.
+- [x] **7. Chat assistant** — Gemini integrado e funcionando; o contexto
+      inclui agenda (com categoria/status/quem paga de cada conta) e
+      agora também os remédios ativos com seus horários e dias da semana.
+- [x] **8. USB folder transfer** — `usb.controller.ts`/`.service.ts`:
+      navegação de pastas (`GET /api/usb/folders`, escopado a
+      `USB_BASE_DIR`), detecção de pendrives (`GET /api/usb/drives`, lista
+      subpastas de `USB_DRIVES_DIR` — cada uma representa um drive
+      montado), cópia recursiva assíncrona (`POST /api/usb/copy` retorna
+      um job id na hora, front acompanha por polling em
+      `GET /api/usb/jobs/:id`; estado do job fica só em memória, não
+      precisa sobreviver a um restart do backend). Todo caminho vindo da
+      API é resolvido e validado contra o diretório base antes de tocar o
+      filesystem (`resolveWithinBase` em `usb.service.ts`), pra não
+      permitir path traversal via `..`. `docker-compose.yml` agora monta
+      `USB_BASE_DIR`/`USB_DRIVES_DIR` a partir de
+      `USB_HOST_DOCUMENTS_DIR`/`USB_HOST_DRIVES_DIR` (variáveis do host,
+      opcionais); sem elas, cai num sandbox local versionado em
+      `backend/usb-sandbox/` — dá pra testar o fluxo completo sem tocar
+      no filesystem real da máquina. Em produção (fora do Docker/já como
+      app Electron), essas variáveis apontam pras pastas reais do host.
+      Tela `UsbTransfer.tsx`: fluxo em duas colunas "escolher pasta →
+      escolher pendrive → copiar", com barra de progresso via polling.
+- [x] **9. Accessibility pass** — botão **"Modo simples"** no header
+      (`AccessibilityContext`, persistido em `localStorage`), aplica a
+      classe `modo-simples` em `<html>`: aumenta a fonte-base de 18px
+      para 24px (todo o resto escala junto, já que as classes do
+      Tailwind usam rem) e escurece texto/bordas em tom claro demais pra
+      contraste maior. Navegação completa só com setas + Enter em
+      qualquer tela (`useArrowKeyNavigation`, hook global montado uma vez
+      em `App.tsx`): setas percorrem todo elemento focável em ordem do
+      DOM, sem atrapalhar digitação em campos de texto/select; Enter
+      ativa o elemento focado, incluindo checkboxes (que por padrão só
+      respondem a espaço) — o suficiente pra um controle
+      Bluetooth/IR barato que emula essas teclas operar o app inteiro.
+      Runbook de acesso remoto escrito em `docs/remote-access-setup.md`
+      (RustDesk, sem porta a abrir, acesso desacompanhado) — só
+      documentação, nenhum passo operacional foi executado.
 - [ ] **10. Windows packaging** — wrap with Electron, bundle SQLite + backend
       as a local service, installer build — explicitly a later milestone,
       not part of the initial implementation.
