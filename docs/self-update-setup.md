@@ -144,9 +144,18 @@ Se preferir montar a tarefa você mesmo (ou o script acima não achar o
 
    ```powershell
    $action = New-ScheduledTaskAction -Execute "C:\Program Files\Git\bin\bash.exe" -Argument '--login "C:\Users\SEU_USUARIO\vecchio\scripts\vecchio-update-watcher.sh"'
-   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration ([TimeSpan]::MaxValue)
+   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
+   $trigger.Repetition.Duration = ''
+   $trigger.Repetition.StopAtDurationEnd = $false
    Register-ScheduledTask -TaskName "VecchioUpdateWatcher" -Action $action -Trigger $trigger -Description "Watcher de autoatualizacao do Vecchio, roda a cada minuto"
    ```
+
+   (Não use `-RepetitionDuration ([TimeSpan]::MaxValue)` — parece "repetir
+   pra sempre" mas gera um valor de duração grande demais pro XML do
+   Agendador de Tarefas aceitar, e o `Register-ScheduledTask` falha com "o
+   XML da tarefa contém um valor formatado incorretamente ou fora do
+   intervalo". Deixar `Duration` vazio é o mesmo que marcar "Indefinitely"
+   na interface gráfica.)
 
    Isso cria uma tarefa chamada "VecchioUpdateWatcher" que roda o script a
    cada minuto, indefinidamente, com as mesmas permissões do seu usuário

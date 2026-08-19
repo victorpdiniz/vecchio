@@ -54,7 +54,16 @@ if ($existing) {
 # que o Docker Desktop registrou) - com --login, roda igual ao Git Bash
 # aberto manualmente.
 $action = New-ScheduledTaskAction -Execute $bashPath -Argument "--login `"$WatcherScript`""
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration ([TimeSpan]::MaxValue)
+
+# -RepetitionDuration ([TimeSpan]::MaxValue) parece "repetir pra sempre" mas
+# gera um valor de duracao absurdamente grande que o XML do Agendador de
+# Tarefas rejeita ("valor formatado incorretamente ou fora do intervalo").
+# O jeito certo de dizer "repita a cada minuto, indefinidamente" (igual a
+# opcao "Indefinitely" na interface grafica) e deixar Duration vazio.
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
+$trigger.Repetition.Duration = ''
+$trigger.Repetition.StopAtDurationEnd = $false
+
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 
 Register-ScheduledTask `
