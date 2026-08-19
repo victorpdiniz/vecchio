@@ -7,6 +7,7 @@ export interface PasswordRecord {
   username: string;
   password: string;
   notes: string | null;
+  ownerProfileId: string;
   createdAt: string;
   updatedAt: string;
 }

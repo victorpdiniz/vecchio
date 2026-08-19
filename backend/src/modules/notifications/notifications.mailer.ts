@@ -29,3 +29,22 @@ export async function sendReminderEmail(to: string, item: AgendaItem, reminderLa
 
   await transporter.sendMail({ from: env.SMTP_FROM, to, subject, text });
 }
+
+export async function sendDoseReminderEmail(
+  to: string,
+  dose: { name: string; dosage: string; timeOfDay: string },
+  kind: 'upcoming' | 'missed',
+) {
+  const subject = kind === 'upcoming' ? `Remédio em breve: ${dose.name}` : `Remédio não tomado: ${dose.name}`;
+  const text =
+    kind === 'upcoming'
+      ? `Hora de tomar ${dose.name} (${dose.dosage}) às ${dose.timeOfDay}.`
+      : `${dose.name} (${dose.dosage}) estava marcado para ${dose.timeOfDay} e ainda não foi marcado como tomado.`;
+
+  if (!transporter) {
+    console.info(`[notifications] SMTP não configurado — pulei email para ${to}: "${subject}"`);
+    return;
+  }
+
+  await transporter.sendMail({ from: env.SMTP_FROM, to, subject, text });
+}

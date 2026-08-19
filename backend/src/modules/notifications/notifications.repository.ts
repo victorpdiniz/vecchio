@@ -30,4 +30,25 @@ export const notificationsRepository = {
       orderBy: { startAt: 'asc' },
     });
   },
+
+  hasDoseLog(doseLogId: string, kind: string, channel: string, sentTo: string) {
+    return prisma.notificationLog.findFirst({ where: { doseLogId, kind, channel, sentTo } });
+  },
+
+  createDoseLog(data: { doseLogId: string; kind: string; channel: string; sentTo: string }) {
+    return prisma.notificationLog.create({ data });
+  },
+
+  // Doses de hoje já avisadas (log "inapp") e ainda não tomadas — pro banner.
+  findPendingDoses(doseDate: string) {
+    return prisma.medicineDoseLog.findMany({
+      where: {
+        doseDate,
+        takenAt: null,
+        notifications: { some: { channel: 'inapp' } },
+      },
+      include: { medicine: true, notifications: { where: { channel: 'inapp' }, orderBy: { sentAt: 'desc' }, take: 1 } },
+      orderBy: { timeOfDay: 'asc' },
+    });
+  },
 };

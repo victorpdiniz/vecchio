@@ -6,7 +6,7 @@ import { PasswordModal } from '../components/passwords/PasswordModal';
 
 type ModalState = { mode: 'create' } | { mode: 'edit'; record: PasswordRecord } | null;
 
-function PasswordRow({ record, isAdmin, onEdit }: { record: PasswordRecord; isAdmin: boolean; onEdit: () => void }) {
+function PasswordRow({ record, canEdit, onEdit }: { record: PasswordRecord; canEdit: boolean; onEdit: () => void }) {
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState<'username' | 'password' | null>(null);
 
@@ -47,7 +47,7 @@ function PasswordRow({ record, isAdmin, onEdit }: { record: PasswordRecord; isAd
         </p>
         {record.notes && <p className="mt-1 text-base text-slate-500">{record.notes}</p>}
       </div>
-      {isAdmin && (
+      {canEdit && (
         <button
           type="button"
           onClick={onEdit}
@@ -92,7 +92,7 @@ export function Passwords() {
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-slate-800">Senhas</h1>
-        {isAdmin && (
+        {currentProfile && (
           <button
             type="button"
             onClick={() => setModalState({ mode: 'create' })}
@@ -127,7 +127,7 @@ export function Passwords() {
           <PasswordRow
             key={record.id}
             record={record}
-            isAdmin={isAdmin}
+            canEdit={isAdmin || record.ownerProfileId === currentProfile?.id}
             onEdit={() => setModalState({ mode: 'edit', record })}
           />
         ))}

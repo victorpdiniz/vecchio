@@ -30,5 +30,12 @@ export const medicineIdParamSchema = z.object({
   id: z.string().min(1, 'Id do remédio é obrigatório.'),
 });
 
+export const markDoseTakenSchema = z.object({
+  scheduleId: z.string().min(1, 'Id do horário é obrigatório.'),
+  doseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.'),
+  taken: z.boolean(),
+});
+
 export type CreateMedicineInput = z.infer<typeof createMedicineSchema>;
 export type UpdateMedicineInput = z.infer<typeof updateMedicineSchema>;
+export type MarkDoseTakenInput = z.infer<typeof markDoseTakenSchema>;

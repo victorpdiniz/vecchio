@@ -1,5 +1,11 @@
 import { api } from './client';
 
+export interface LastUpdateResult {
+  state: 'ok' | 'error';
+  message: string;
+  at: string;
+}
+
 export interface UpdateStatus {
   updateAvailable: boolean;
   currentCommit: string | null;
@@ -8,6 +14,7 @@ export interface UpdateStatus {
   remoteSummary: string | null;
   triggeredAt: string | null;
   checkError: string | null;
+  lastUpdateResult: LastUpdateResult | null;
 }
 
 export async function fetchUpdateStatus(): Promise<UpdateStatus> {

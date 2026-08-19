@@ -5,6 +5,10 @@ export const passwordsRepository = {
     return prisma.password.findMany({ orderBy: { siteName: 'asc' } });
   },
 
+  findAllByOwner(ownerProfileId: string) {
+    return prisma.password.findMany({ where: { ownerProfileId }, orderBy: { siteName: 'asc' } });
+  },
+
   findById(id: string) {
     return prisma.password.findUnique({ where: { id } });
   },
@@ -15,6 +19,7 @@ export const passwordsRepository = {
     username: string;
     passwordEncrypted: string;
     notes: string | null;
+    ownerProfileId: string;
   }) {
     return prisma.password.create({ data });
   },

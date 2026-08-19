@@ -1,11 +1,21 @@
 import type { FastifyInstance } from 'fastify';
-import { createMedicineSchema, medicineIdParamSchema, updateMedicineSchema } from './medicines.schema.js';
+import {
+  createMedicineSchema,
+  markDoseTakenSchema,
+  medicineIdParamSchema,
+  updateMedicineSchema,
+} from './medicines.schema.js';
 import { medicinesService } from './medicines.service.js';
 
 export async function medicinesController(app: FastifyInstance) {
   app.get('/api/medicines', async () => medicinesService.list());
 
   app.get('/api/medicines/today', async () => medicinesService.today());
+
+  app.post('/api/medicines/doses/taken', async (request) => {
+    const input = markDoseTakenSchema.parse(request.body);
+    return medicinesService.markDoseTaken(input, request.profileId);
+  });
 
   app.get('/api/medicines/:id', async (request) => {
     const { id } = medicineIdParamSchema.parse(request.params);

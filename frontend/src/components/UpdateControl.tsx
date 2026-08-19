@@ -64,6 +64,20 @@ export function UpdateControl() {
     );
   }
 
+  if (status.lastUpdateResult?.state === 'error') {
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={busy}
+        title={status.lastUpdateResult.message}
+        className="rounded-lg border border-red-700 bg-red-600 px-4 py-2 text-lg font-medium text-white hover:bg-red-700 disabled:opacity-50"
+      >
+        Atualização falhou — tentar de novo
+      </button>
+    );
+  }
+
   if (status.updateAvailable) {
     return (
       <button

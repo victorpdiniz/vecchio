@@ -37,11 +37,13 @@ export interface MedicineInput {
 
 export interface TodayDose {
   medicineId: string;
+  scheduleId: string;
   name: string;
   dosage: string;
   profileId: string | null;
   profile: Profile | null;
   timeOfDay: string;
+  taken: boolean;
 }
 
 export async function fetchMedicines(): Promise<Medicine[]> {
@@ -66,4 +68,8 @@ export async function updateMedicine(id: string, input: MedicineInput): Promise<
 
 export async function deleteMedicine(id: string): Promise<void> {
   await api.delete(`/api/medicines/${id}`);
+}
+
+export async function markDoseTaken(input: { scheduleId: string; doseDate: string; taken: boolean }): Promise<void> {
+  await api.post('/api/medicines/doses/taken', input);
 }

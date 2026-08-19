@@ -10,12 +10,12 @@ import { passwordsService } from './passwords.service.js';
 export async function passwordsController(app: FastifyInstance) {
   app.get('/api/passwords', async (request) => {
     const { search } = passwordsQuerySchema.parse(request.query);
-    return passwordsService.list(search);
+    return passwordsService.list(search, request.profileId);
   });
 
   app.get('/api/passwords/:id', async (request) => {
     const { id } = passwordIdParamSchema.parse(request.params);
-    return passwordsService.getById(id);
+    return passwordsService.getById(id, request.profileId);
   });
 
   app.post('/api/passwords', async (request, reply) => {

@@ -29,6 +29,8 @@ model Profile {
   uploadedAttachments      Attachment[]
   chatMessages             ChatMessage[]
   googleCalendarConnection GoogleCalendarConnection?
+  medicineDoseLogs         MedicineDoseLog[]
+  passwords                Password[]
 }
 
 model AgendaItem {
@@ -84,6 +86,7 @@ model Medicine {
   createdAt DateTime  @default(now())
 
   schedules MedicineSchedule[]
+  doseLogs  MedicineDoseLog[]
 }
 
 model MedicineSchedule {
@@ -92,6 +95,32 @@ model MedicineSchedule {
   medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
   timeOfDay  String // "HH:mm"
   daysOfWeek String // csv, ex: "0,1,2,3,4,5,6"
+
+  doseLogs MedicineDoseLog[]
+}
+
+// Registro de "tomei"/"não tomei" por dose do dia. scheduleId+doseDate é
+// único: torna marcar como tomado um upsert idempotente e dá ao scan de
+// notificações uma checagem de existência direta (dose já tem log = já foi
+// avisada ou já foi tomada). timeOfDay é uma cópia do horário do schedule no
+// momento do registro — sobrevive a edições do remédio (replaceSchedules
+// recria os schedules do zero a cada edição, então scheduleId não é estável).
+model MedicineDoseLog {
+  id         String    @id @default(cuid())
+  medicineId String
+  medicine   Medicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  scheduleId String
+  schedule   MedicineSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  doseDate   String // "YYYY-MM-DD" no fuso da app (America/Sao_Paulo)
+  timeOfDay  String
+  takenAt    DateTime?
+  markedById String?
+  markedBy   Profile?  @relation(fields: [markedById], references: [id])
+  createdAt  DateTime  @default(now())
+
+  notifications NotificationLog[]
+
+  @@unique([scheduleId, doseDate])
 }
 
 model Bill {
@@ -133,17 +162,29 @@ model Password {
   username          String
   passwordEncrypted String
   notes             String?
+  ownerProfileId    String
+  ownerProfile      Profile  @relation(fields: [ownerProfileId], references: [id])
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
 
+// reminderId (AgendaReminder) ou doseLogId (MedicineDoseLog) — exatamente um
+// dos dois é preenchido por registro; a camada de aplicação garante isso
+// (SQLite/Prisma não têm CHECK constraint pra expressar "exatamente um").
+// kind diferencia o tipo de aviso quando a origem é uma dose de remédio
+// ("upcoming" = 15 min antes, "missed-0", "missed-1", ... = uma hora, duas
+// horas etc. depois do horário sem ter sido marcada como tomada); pra
+// lembretes de agenda o valor default "reminder" nunca é lido.
 model NotificationLog {
-  id         String         @id @default(cuid())
-  reminderId String
-  reminder   AgendaReminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  id         String            @id @default(cuid())
+  reminderId String?
+  reminder   AgendaReminder?   @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  doseLogId  String?
+  doseLog    MedicineDoseLog?  @relation(fields: [doseLogId], references: [id], onDelete: Cascade)
+  kind       String            @default("reminder")
   channel    String // "inapp" | "email"
   sentTo     String
-  sentAt     DateTime       @default(now())
+  sentAt     DateTime          @default(now())
 }
 
 model ChatMessage {
@@ -156,7 +197,12 @@ model ChatMessage {
   // para o histórico conseguir remontar os cards sem precisar perguntar
   // de novo ao Gemini.
   agendaItemIds String?
-  createdAt     DateTime @default(now())
+  // Ação que o agente propôs (JSON) e seu status — só em role="model". O
+  // agente nunca executa a ação sozinho: só a registra aqui, esperando
+  // confirmação do usuário (ver chatService.confirmAction).
+  proposedAction       String?
+  proposedActionStatus String? // "pending" | "confirmed" | "cancelled"
+  createdAt            DateTime @default(now())
 }
 
 // Conexão OAuth do Admin com o Google Calendar — linha única, usada para

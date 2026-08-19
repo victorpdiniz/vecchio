@@ -2,7 +2,15 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getErrorMessage } from '../api/client';
-import { fetchChatHistory, sendChatMessage, type ChatMessage } from '../api/chat';
+import {
+  cancelChatAction,
+  clearChatHistory,
+  confirmChatAction,
+  fetchChatHistory,
+  sendChatMessage,
+  type ChatMessage,
+  type ProposedAction,
+} from '../api/chat';
 import type { AgendaItem, AgendaCategory } from '../api/agenda';
 
 interface DisplayMessage {
@@ -10,6 +18,8 @@ interface DisplayMessage {
   role: 'user' | 'model';
   content: string;
   agendaItems: AgendaItem[];
+  proposedAction: ProposedAction | null;
+  proposedActionStatus: 'pending' | 'confirmed' | 'cancelled' | null;
 }
 
 const CATEGORY_COLORS: Record<AgendaCategory, string> = {
@@ -61,18 +71,67 @@ function AgendaResultCard({ item }: { item: AgendaItem }) {
   );
 }
 
+// Card de confirmação pra uma ação que o agente propôs (marcar conta como
+// paga, criar compromisso) — o agente nunca executa sozinho, só propõe;
+// esse card é o único jeito de a ação de fato acontecer.
+function ActionConfirmCard({
+  action,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  action: ProposedAction;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="mr-auto max-w-[85%] rounded-xl border border-amber-300 bg-amber-50 p-3 text-lg text-amber-900">
+      <p>{action.confirmationPrompt ?? 'Confirmar essa ação?'}</p>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={busy}
+          className="rounded-lg bg-amber-600 px-3 py-1.5 text-base font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+        >
+          Confirmar
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="rounded-lg border border-amber-300 px-3 py-1.5 text-base text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Chat() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchChatHistory()
       .then((history: ChatMessage[]) =>
-        setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content, agendaItems: m.agendaItems }))),
+        setMessages(
+          history.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            agendaItems: m.agendaItems,
+            proposedAction: m.proposedAction,
+            proposedActionStatus: m.proposedActionStatus,
+          })),
+        ),
       )
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
@@ -89,12 +148,25 @@ export function Chat() {
 
     setError(null);
     setInput('');
-    setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: 'user', content: question, agendaItems: [] }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: `local-${Date.now()}`, role: 'user', content: question, agendaItems: [], proposedAction: null, proposedActionStatus: null },
+    ]);
     setSending(true);
 
     try {
-      const { answer, agendaItems } = await sendChatMessage(question);
-      setMessages((prev) => [...prev, { id: `local-${Date.now()}-reply`, role: 'model', content: answer, agendaItems }]);
+      const { answer, agendaItems, proposedAction, messageId } = await sendChatMessage(question);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: messageId,
+          role: 'model',
+          content: answer,
+          agendaItems,
+          proposedAction: proposedAction.kind !== 'none' ? proposedAction : null,
+          proposedActionStatus: proposedAction.kind !== 'none' ? 'pending' : null,
+        },
+      ]);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -102,9 +174,63 @@ export function Chat() {
     }
   }
 
+  async function handleConfirmAction(messageId: string) {
+    setBusyActionId(messageId);
+    setError(null);
+    try {
+      const { resultText, messageId: systemMessageId } = await confirmChatAction(messageId);
+      setMessages((prev) => [
+        ...prev.map((m) => (m.id === messageId ? { ...m, proposedActionStatus: 'confirmed' as const } : m)),
+        { id: systemMessageId, role: 'model', content: resultText, agendaItems: [], proposedAction: null, proposedActionStatus: null },
+      ]);
+    } catch (err) {
+      setError(getErrorMessage(err));
+      // 409 = a ação já foi tratada (ex: confirmada em outro aparelho) —
+      // esconde o card em vez de deixar o usuário tentar de novo.
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, proposedActionStatus: 'cancelled' as const } : m)));
+    } finally {
+      setBusyActionId(null);
+    }
+  }
+
+  async function handleCancelAction(messageId: string) {
+    setBusyActionId(messageId);
+    setError(null);
+    try {
+      await cancelChatAction(messageId);
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, proposedActionStatus: 'cancelled' as const } : m)));
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, proposedActionStatus: 'cancelled' as const } : m)));
+    } finally {
+      setBusyActionId(null);
+    }
+  }
+
+  async function handleClearHistory() {
+    if (!window.confirm('Apagar toda a conversa? Essa ação não pode ser desfeita.')) return;
+    try {
+      await clearChatHistory();
+      setMessages([]);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
   return (
     <section className="mx-auto flex h-[75vh] max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white p-4">
-      <h1 className="mb-4 text-3xl font-bold text-slate-800">Chat</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-slate-800">Chat</h1>
+        {messages.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearHistory}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-base text-slate-600 hover:bg-slate-50"
+          >
+            Limpar conversa
+          </button>
+        )}
+      </div>
 
       <div className="flex-1 overflow-y-auto pr-1">
         {loading && <p className="text-lg text-slate-500">Carregando conversa…</p>}
@@ -131,6 +257,14 @@ export function Chat() {
                     <AgendaResultCard key={item.id} item={item} />
                   ))}
                 </div>
+              )}
+              {message.proposedAction && message.proposedActionStatus === 'pending' && (
+                <ActionConfirmCard
+                  action={message.proposedAction}
+                  busy={busyActionId === message.id}
+                  onConfirm={() => handleConfirmAction(message.id)}
+                  onCancel={() => handleCancelAction(message.id)}
+                />
               )}
             </div>
           ))}
