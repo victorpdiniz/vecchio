@@ -42,6 +42,7 @@ if (-not $bashPath) {
 Write-Host "Git Bash encontrado em: $bashPath"
 Write-Host "Repositorio: $RepoRoot"
 Write-Host "Script do watcher: $WatcherScript"
+Write-Host "(sem janela de terminal: a tarefa chama o script por um lancador oculto gerado em .git\vecchio-update-watcher-hidden.vbs)"
 
 $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if ($existing) {
@@ -53,7 +54,24 @@ if ($existing) {
 # /etc/profile que monta o ambiente MINGW64 (inclusive o PATH com as pastas
 # que o Docker Desktop registrou) - com --login, roda igual ao Git Bash
 # aberto manualmente.
-$action = New-ScheduledTaskAction -Execute $bashPath -Argument "--login `"$WatcherScript`""
+$bashCommandLine = "`"$bashPath`" --login `"$WatcherScript`""
+
+# Chamar bash.exe direto no Action faz uma janela de terminal aparecer (e
+# sumir) a cada minuto - incomoda mesmo rodando rapido. -WindowStyle Hidden
+# no Start-Process nao elimina o flash de forma confiavel no Agendador de
+# Tarefas; o jeito que realmente nunca mostra janela nenhuma e rodar via
+# WScript.Shell.Run com o estilo de janela 0 (oculta). Por isso geramos um
+# .vbs pequeno (guardado dentro do .git, junto dos outros arquivos gerados
+# pelo watcher) e apontamos a tarefa pra ele em vez de pro bash.exe direto.
+$vbsPath = Join-Path $RepoRoot '.git\vecchio-update-watcher-hidden.vbs'
+$vbsEscapedCommandLine = $bashCommandLine -replace '"', '""'
+$vbsContent = @"
+Set objShell = CreateObject("WScript.Shell")
+objShell.Run "$vbsEscapedCommandLine", 0, True
+"@
+Set-Content -Path $vbsPath -Value $vbsContent -Encoding ASCII
+
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "//B `"$vbsPath`""
 
 # -RepetitionDuration ([TimeSpan]::MaxValue) parece "repetir pra sempre" mas
 # gera um valor de duracao absurdamente grande que o XML do Agendador de

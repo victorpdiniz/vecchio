@@ -113,6 +113,12 @@ Git Bash padrão, nada diferente do que já está descrito aqui.
    novo sempre que quiser (por exemplo, depois de mover o repositório de
    pasta) que ele substitui a tarefa antiga em vez de duplicar.
 
+   A tarefa não chama o `bash.exe` direto — isso faria uma janela de
+   terminal aparecer e sumir a cada minuto. Em vez disso, o script gera um
+   pequeno lançador oculto (`.git\vecchio-update-watcher-hidden.vbs`, criado
+   automaticamente, não precisa mexer nele) e aponta a tarefa pra ele, então
+   o watcher roda sem nenhuma janela visível.
+
 3. Pra conferir que funcionou: abra o app, aperte "Atualizar" (com uma
    atualização disponível) e espere até um minuto — o botão deve sair de
    "Atualizando…" sozinho. Ou dispare a tarefa na hora, sem esperar o
@@ -125,7 +131,11 @@ Git Bash padrão, nada diferente do que já está descrito aqui.
 ### Ou na mão, sem o script
 
 Se preferir montar a tarefa você mesmo (ou o script acima não achar o
-`bash.exe`), o equivalente manual é:
+`bash.exe`), o equivalente manual é o seguinte. **Atenção**: chamar o
+`bash.exe` direto como Action da tarefa (como no exemplo abaixo) faz uma
+janela de terminal aparecer e sumir a cada minuto — pra evitar isso, use o
+`install-update-watcher.ps1` acima, que já aponta a tarefa pra um lançador
+oculto em vez do `bash.exe` diretamente.
 
 1. Confirme o caminho do `bash.exe` do Git Bash — normalmente
    `C:\Program Files\Git\bin\bash.exe`. Pra checar, abra o Git Bash e rode:
