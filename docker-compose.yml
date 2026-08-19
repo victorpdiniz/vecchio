@@ -36,6 +36,8 @@ services:
       #   USB_HOST_DRIVES_DIR=/media/usuario
       - ${USB_HOST_DOCUMENTS_DIR:-./backend/usb-sandbox/documentos}:/usb-documentos
       - ${USB_HOST_DRIVES_DIR:-./backend/usb-sandbox/drives}:/usb-drives
+    restart: unless-stopped
+
 
   frontend:
     build: ./frontend
@@ -48,6 +50,7 @@ services:
       - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   backend_node_modules:
