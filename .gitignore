@@ -35,5 +35,5 @@ npm-debug.log*
 .idea/
 .DS_Store
 
-# Índice do qartez (ferramenta local de indexação de código)
-.qartez/
+# Índice do CodeGraph (ferramenta local de indexação de código)
+.codegraph/
